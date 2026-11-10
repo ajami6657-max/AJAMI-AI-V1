@@ -13,6 +13,7 @@ Persian-first Android AI assistant for online and offline workflows.
 ## Offline audio feature scope
 - Persian text-to-speech with selectable male/female voice options where supported by the installed local voice model.
 - Offline narration and spoken responses.
+- Offline maddahi/recitation creation workflow with selectable male/female synthetic voices, subject to a locally installed voice model and lawful use of any reference voice; no imitation of a real person without permission.
 - Experimental local music and melody generation using a separate downloaded audio model; performance and quality depend on device compatibility.
 - Audio export and playback (WAV first; MP3 only when a verified encoder is integrated).
 - Speech synthesis and music generation are separate engines and must be tested independently. No cloud API or paid subscription is required for local inference after model download.
