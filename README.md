@@ -10,6 +10,13 @@ Persian-first Android AI assistant for online and offline workflows.
   2. Photo-to-video using local motion effects, pan/zoom, transitions, captions and optional audio. This is a practical offline editor workflow, not the same as generative text-to-video.
 - Model downloads and storage are separate from the APK so users can choose which large models to install.
 
+## Offline audio feature scope
+- Persian text-to-speech with selectable male/female voice options where supported by the installed local voice model.
+- Offline narration and spoken responses.
+- Experimental local music and melody generation using a separate downloaded audio model; performance and quality depend on device compatibility.
+- Audio export and playback (WAV first; MP3 only when a verified encoder is integrated).
+- Speech synthesis and music generation are separate engines and must be tested independently. No cloud API or paid subscription is required for local inference after model download.
+
 ## Device compatibility
 Target device currently discussed: Samsung Galaxy A53 (Exynos 1280, 8 GB RAM). Full generative text-to-video and large image models may be too slow or may fail due to RAM, GPU/NPU and thermal constraints. The app must label experimental functions honestly and never present a placeholder as a working AI engine.
 
