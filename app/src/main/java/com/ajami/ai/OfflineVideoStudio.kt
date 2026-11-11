@@ -106,7 +106,7 @@ fun OfflineVideoStudio() {
             onClick = {
                 runEdit("کوتاه‌کردن ویدئو", "mp4") { src, dst ->
                     val seconds = trimSeconds.toIntOrNull()?.coerceIn(1, 3600) ?: 15
-                    "-y -i '\${src.absolutePath}' -t $seconds -c:v libx264 -preset ultrafast -crf 25 -c:a aac '\${dst.absolutePath}'"
+                    "-y -i '${src.absolutePath}' -t $seconds -c:v mpeg4 -q:v 5 -c:a aac '${dst.absolutePath}'"
                 }
             }
         ) { Text("ساخت کلیپ کوتاه") }
@@ -116,7 +116,7 @@ fun OfflineVideoStudio() {
             enabled = inputFile != null && !busy,
             onClick = {
                 runEdit("فشرده‌سازی ویدئو", "mp4") { src, dst ->
-                    "-y -i '\${src.absolutePath}' -vf scale='min(1280,iw)':-2 -c:v libx264 -preset ultrafast -crf 28 -c:a aac -b:a 96k '\${dst.absolutePath}'"
+                    "-y -i '${src.absolutePath}' -vf scale='min(1280,iw)':-2 -c:v mpeg4 -q:v 7 -c:a aac -b:a 96k '${dst.absolutePath}'"
                 }
             }
         ) { Text("کاهش حجم ویدئو") }
@@ -126,7 +126,7 @@ fun OfflineVideoStudio() {
             enabled = inputFile != null && !busy,
             onClick = {
                 runEdit("استخراج صدا", "m4a") { src, dst ->
-                    "-y -i '\${src.absolutePath}' -vn -c:a aac -b:a 128k '\${dst.absolutePath}'"
+                    "-y -i '${src.absolutePath}' -vn -c:a aac -b:a 128k '${dst.absolutePath}'"
                 }
             }
         ) { Text("استخراج صدا از ویدئو") }
