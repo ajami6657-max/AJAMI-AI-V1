@@ -20,10 +20,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - uses: android-actions/setup-android@v3
       - name: Build offline image engine for Android ARM64
         run: |
-          sdkmanager "ndk;27.2.12479018" "cmake;3.31.6"
+          yes | sdkmanager --licenses
+          sdkmanager --install "ndk;27.2.12479018" "cmake;3.31.6"
           git clone --depth 1 --recurse-submodules https://github.com/leejet/stable-diffusion.cpp.git /tmp/stable-diffusion.cpp
           NDK="$ANDROID_HOME/ndk/27.2.12479018"
           cmake -S /tmp/stable-diffusion.cpp -B /tmp/stable-diffusion.cpp/build-android -G Ninja \
