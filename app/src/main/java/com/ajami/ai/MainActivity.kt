@@ -63,7 +63,7 @@ private fun AjamiApp() {
     }
     LaunchedEffect(Unit) {
         if (modelFile.exists() && modelFile.length() > 900_000_000L) {
-            modelStatus = "مدل دانلود شده است؛ موتور اجرای آفلاین هنوز در حال توسعه است."
+            modelStatus = "مدل دانلود شده است؛ برای شروع چت آفلاین، آن را بارگذاری کن."
         }
     }
     DisposableEffect(context) {
@@ -80,7 +80,7 @@ private fun AjamiApp() {
                                 val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
                                 val status = if (statusIndex >= 0) cursor.getInt(statusIndex) else -1
                                 if (status == DownloadManager.STATUS_SUCCESSFUL && modelFile.exists()) {
-                                    modelStatus = "مدل با موفقیت دانلود شد؛ برای پاسخ آفلاین هنوز باید موتور اجرا متصل شود."
+                                    modelStatus = "مدل با موفقیت دانلود شد؛ دکمه بارگذاری را بزن تا چت آفلاین آماده شود."
                                 } else {
                                     val reasonIndex = cursor.getColumnIndex(DownloadManager.COLUMN_REASON)
                                     val reason = if (reasonIndex >= 0) cursor.getInt(reasonIndex) else -1
@@ -97,7 +97,7 @@ private fun AjamiApp() {
         onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
     val messages = remember {
-        mutableStateListOf(ChatMessage("assistant", "سلام! برای گفت‌وگوی آنلاین، اتصال API را از تنظیمات وارد کن."))
+        mutableStateListOf(ChatMessage("assistant", "سلام! برای چت آفلاین، مدل را دانلود و بارگذاری کن. پس از بارگذاری، حالت آفلاین فعال می‌شود و نیازی به API نیست."))
     }
     val scope = rememberCoroutineScope()
     val gold = Color(0xFFFFC857)
@@ -193,7 +193,8 @@ private fun AjamiApp() {
                                             Llama.loadModel(modelFile.absolutePath, LlamaConfig(contextSize = 2048, threads = 4, gpuLayers = 0))
                                         }
                                         offlineModel = loaded
-                                        modelStatus = "مدل بارگذاری شد؛ گفت‌وگوی آفلاین آماده استفاده است."
+                                        offlineMode = true
+                                        modelStatus = "مدل بارگذاری شد؛ حالت آفلاین فعال است. برای پاسخ‌گویی نیازی به اینترنت یا API نیست."
                                     } catch (e: Exception) {
                                         modelStatus = "بارگذاری مدل ناموفق بود: ${e.localizedMessage ?: "خطای ناشناخته"}"
                                     } finally { offlineLoading = false }
