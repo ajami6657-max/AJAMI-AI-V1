@@ -69,12 +69,12 @@ private fun AjamiApp() {
     var offlineModel by remember { mutableStateOf<LlamaModel?>(null) }
     var offlineLoading by remember { mutableStateOf(false) }
     var offlineMode by remember { mutableStateOf(false) }
-    val modelFileName = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    val modelFileName = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
     val modelFile = remember(context) {
         File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), modelFileName)
     }
     LaunchedEffect(Unit) {
-        if (modelFile.exists() && modelFile.length() > 900_000_000L) {
+        if (modelFile.exists() && modelFile.length() > 400_000_000L) {
             modelStatus = "مدل دانلود شده است؛ برای شروع چت آفلاین، آن را بارگذاری کن."
         }
     }
@@ -202,7 +202,7 @@ private fun AjamiApp() {
                 ) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("مدل هوش مصنوعی آفلاین", color = gold, style = MaterialTheme.typography.titleMedium)
-                        Text("Qwen 2.5 • 1.5B • Q4_K_M • حدود ۱٫۱۲ گیگابایت", color = Color.White)
+                        Text("Qwen 2.5 • 0.5B • Q4_K_M • حدود ۴۹۱ مگابایت", color = Color.White)
                         Text(modelStatus, color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                         if (modelFile.exists() && offlineModel == null) {
                             Button(enabled = !offlineLoading, onClick = {
@@ -210,7 +210,7 @@ private fun AjamiApp() {
                                 modelStatus = "در حال بارگذاری مدل در حافظه گوشی..."
                                 scope.launch {
                                     try {
-                                        if (!modelFile.exists() || modelFile.length() < 900_000_000L) {
+                                        if (!modelFile.exists() || modelFile.length() < 400_000_000L) {
                                             error("فایل مدل ناقص است یا دانلود نشده؛ مدل را دوباره دانلود کن.")
                                         }
                                         val magic = modelFile.inputStream().use { stream ->
@@ -222,7 +222,7 @@ private fun AjamiApp() {
                                         val memory = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
                                         val memoryInfo = ActivityManager.MemoryInfo()
                                         memory.getMemoryInfo(memoryInfo)
-                                        if (memoryInfo.lowMemory || memoryInfo.availMem < 1_200_000_000L) {
+                                        if (memoryInfo.lowMemory || memoryInfo.availMem < 800_000_000L) {
                                             error("حافظه آزاد گوشی برای بارگذاری مدل کافی نیست. برنامه‌های دیگر را ببند و دوباره تلاش کن.")
                                         }
                                         val loaded = withContext(Dispatchers.Default) {
@@ -252,10 +252,10 @@ private fun AjamiApp() {
                             onClick = {
                                 try {
                                     val request = DownloadManager.Request(
-                                        Uri.parse("https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf?download=true")
+                                        Uri.parse("https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf?download=true")
                                     )
                                         .setTitle("دانلود مدل آفلاین AJAMI-AI")
-                                        .setDescription("مدل زبانی Qwen 2.5 • حدود ۱٫۱۲ گیگابایت")
+                                        .setDescription("مدل زبانی Qwen 2.5 کوچک • حدود ۴۹۱ مگابایت")
                                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                                         .setAllowedOverMetered(true)
                                         .setAllowedOverRoaming(false)
