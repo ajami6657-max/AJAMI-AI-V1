@@ -10,6 +10,7 @@ import android.provider.MediaStore
 import android.os.Build
 import android.widget.Toast
 import android.app.DownloadManager
+import android.app.ActivityManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -209,14 +210,33 @@ private fun AjamiApp() {
                                 modelStatus = "در حال بارگذاری مدل در حافظه گوشی..."
                                 scope.launch {
                                     try {
+                                        if (!modelFile.exists() || modelFile.length() < 900_000_000L) {
+                                            error("فایل مدل ناقص است یا دانلود نشده؛ مدل را دوباره دانلود کن.")
+                                        }
+                                        val magic = modelFile.inputStream().use { stream ->
+                                            ByteArray(4).also { if (stream.read(it) != 4) error("خواندن فایل مدل ممکن نیست.") }
+                                        }
+                                        if (!magic.contentEquals("GGUF".toByteArray(Charsets.US_ASCII))) {
+                                            error("فایل دانلودشده مدل GGUF معتبر نیست؛ آن را حذف و دوباره دانلود کن.")
+                                        }
+                                        val memory = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                                        val memoryInfo = ActivityManager.MemoryInfo()
+                                        memory.getMemoryInfo(memoryInfo)
+                                        if (memoryInfo.lowMemory || memoryInfo.availMem < 1_200_000_000L) {
+                                            error("حافظه آزاد گوشی برای بارگذاری مدل کافی نیست. برنامه‌های دیگر را ببند و دوباره تلاش کن.")
+                                        }
                                         val loaded = withContext(Dispatchers.Default) {
-                                            Llama.loadModel(modelFile.absolutePath, LlamaConfig(contextSize = 2048, threads = 4, gpuLayers = 0))
+                                            Llama.loadModel(
+                                                modelFile.absolutePath,
+                                                LlamaConfig(contextSize = 1024, threads = 2, gpuLayers = 0)
+                                            )
                                         }
                                         offlineModel = loaded
                                         offlineMode = true
                                         modelStatus = "مدل بارگذاری شد؛ حالت آفلاین فعال است. برای پاسخ‌گویی نیازی به اینترنت یا API نیست."
-                                    } catch (e: Exception) {
-                                        modelStatus = "بارگذاری مدل ناموفق بود: ${e.localizedMessage ?: "خطای ناشناخته"}"
+                                    } catch (e: Throwable) {
+                                        val detail = e.localizedMessage ?: e.javaClass.simpleName
+                                        modelStatus = "بارگذاری مدل انجام نشد: $detail. اگر برنامه بسته شد، ممکن است موتور بومی یا حافظه گوشی دچار خطا شده باشد."
                                     } finally { offlineLoading = false }
                                 }
                             }) { Text(if (offlineLoading) "در حال بارگذاری..." else "بارگذاری مدل برای چت آفلاین") }
