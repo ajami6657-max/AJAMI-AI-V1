@@ -3,12 +3,16 @@ package com.ajami.ai
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.ContentValues
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Environment
+import android.os.Build
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -190,8 +194,42 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                         modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp),
                         contentScale = ContentScale.Fit
                     )
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { saveGeneratedImage(context, bitmap) }
+                    ) { Text("ذخیره تصویر در گالری گوشی") }
                 }
             }
         }
+    }
+}
+
+
+private fun saveGeneratedImage(context: Context, bitmap: Bitmap) {
+    try {
+        if (Build.VERSION.SDK_INT >= 29) {
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, "AJAMI_AI_${System.currentTimeMillis()}.png")
+                put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/AJAMI-AI")
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            }
+            val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                ?: error("ساخت فایل در گالری ناموفق بود")
+            context.contentResolver.openOutputStream(uri)?.use {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            } ?: error("ذخیره تصویر ناموفق بود")
+            values.clear()
+            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+            context.contentResolver.update(uri, values, null, null)
+        } else {
+            val directory = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "AJAMI-AI").apply { mkdirs() }
+            File(directory, "AJAMI_AI_" + System.currentTimeMillis() + ".png").outputStream().use {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
+        Toast.makeText(context, "تصویر در پوشه Pictures/AJAMI-AI ذخیره شد.", Toast.LENGTH_LONG).show()
+    } catch (e: Exception) {
+        Toast.makeText(context, "ذخیره تصویر ناموفق بود: " + (e.localizedMessage ?: "خطای نامشخص"), Toast.LENGTH_LONG).show()
     }
 }
