@@ -52,6 +52,7 @@ private fun AjamiApp() {
     val context = androidx.compose.ui.platform.LocalContext.current
     var studioOpen by remember { mutableStateOf(false) }
     var imageStudioOpen by remember { mutableStateOf(false) }
+    var videoStudioOpen by remember { mutableStateOf(false) }
     var assistantMode by remember { mutableStateOf("گفت‌وگوی عمومی") }
     var modeMenuExpanded by remember { mutableStateOf(false) }
     var posterTitle by remember { mutableStateOf("عنوان پوستر شما") }
@@ -114,7 +115,7 @@ private fun AjamiApp() {
             topBar = {
                 TopAppBar(
                     title = { Text("AJAMI-AI", color = gold) },
-                    actions = { Row { TextButton(onClick = { studioOpen = !studioOpen; imageStudioOpen = false }) { Text(if (studioOpen) "چت" else "پوستر") }; TextButton(onClick = { imageStudioOpen = !imageStudioOpen; studioOpen = false }) { Text(if (imageStudioOpen) "چت" else "تصویرساز") } } },
+                    actions = { Row { TextButton(onClick = { studioOpen = !studioOpen; imageStudioOpen = false; videoStudioOpen = false }) { Text(if (studioOpen) "چت" else "پوستر") }; TextButton(onClick = { imageStudioOpen = !imageStudioOpen; studioOpen = false; videoStudioOpen = false }) { Text(if (imageStudioOpen) "چت" else "تصویرساز") }; TextButton(onClick = { videoStudioOpen = !videoStudioOpen; studioOpen = false; imageStudioOpen = false }) { Text(if (videoStudioOpen) "چت" else "فیلم") } } },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0B2140))
                 )
             },
@@ -173,7 +174,9 @@ private fun AjamiApp() {
             Column(
                 modifier = Modifier.fillMaxSize().padding(innerPadding).padding(12.dp)
             ) {
-                if (imageStudioOpen) {
+                if (videoStudioOpen) {
+                    OfflineVideoStudio()
+                } else if (imageStudioOpen) {
                     AIImageStudio(offlineModel)
                 } else if (studioOpen) {
                     PosterStudio(
