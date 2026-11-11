@@ -22,6 +22,11 @@ android {
         jvmTarget = "17"
     }
     buildFeatures { compose = true }
+    packaging {
+        jniLibs {
+            pickFirsts += "**/libc++_shared.so"
+        }
+    }
 }
 
 dependencies {
