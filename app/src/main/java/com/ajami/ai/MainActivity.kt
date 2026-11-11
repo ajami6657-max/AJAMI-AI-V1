@@ -36,10 +36,6 @@ import kotlinx.coroutines.withContext
 import dev.ffmpegkit.llama.Llama
 import dev.ffmpegkit.llama.LlamaConfig
 import dev.ffmpegkit.llama.LlamaModel
-import org.json.JSONArray
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 
 private data class ChatMessage(val role: String, val text: String)
 
@@ -54,11 +50,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AjamiApp() {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val prefs = remember { context.getSharedPreferences("ajami_settings", 0) }
-    var endpoint by remember { mutableStateOf(prefs.getString("endpoint", "https://api.openai.com/v1") ?: "") }
-    var apiKey by remember { mutableStateOf(prefs.getString("api_key", "") ?: "") }
-    var model by remember { mutableStateOf(prefs.getString("model", "gpt-4o-mini") ?: "") }
-    var showSettings by remember { mutableStateOf(false) }
     var studioOpen by remember { mutableStateOf(false) }
     var posterTitle by remember { mutableStateOf("عنوان پوستر شما") }
     var posterSubtitle by remember { mutableStateOf("متن توضیحات را اینجا بنویسید") }
@@ -120,7 +111,7 @@ private fun AjamiApp() {
             topBar = {
                 TopAppBar(
                     title = { Text("AJAMI-AI", color = gold) },
-                    actions = { TextButton(onClick = { studioOpen = !studioOpen }) { Text(if (studioOpen) "چت" else "استودیو") }; TextButton(onClick = { showSettings = true }) { Text("تنظیمات") } },
+                    actions = { TextButton(onClick = { studioOpen = !studioOpen }) { Text(if (studioOpen) "چت" else "استودیو") } },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0B2140))
                 )
             },
@@ -142,34 +133,20 @@ private fun AjamiApp() {
                             val prompt = input.trim()
                             input = ""
                             messages.add(ChatMessage("user", prompt))
-                            if (offlineMode) {
-                                val loaded = offlineModel
-                                if (loaded == null) {
-                                    messages.add(ChatMessage("assistant", "ابتدا مدل را دانلود و بارگذاری کن."))
-                                } else {
-                                    busy = true
-                                    val history = messages.toList()
-                                    scope.launch {
-                                        val answer = withContext(Dispatchers.Default) {
-                                            runCatching {
-                                                val transcript = history.takeLast(12).joinToString("\\n") { m ->
-                                                    (if (m.role == "user") "کاربر" else "دستیار") + ": " + m.text
-                                                }
-                                                Llama.complete(loaded, prompt = transcript, systemPrompt = "تو دستیار هوش مصنوعی فارسی AJAMI-AI هستی. پاسخ‌ها را دقیق، مفید و به زبان فارسی بده.", maxTokens = 256).text
-                                            }.getOrElse { "خطا در پاسخ آفلاین: ${it.localizedMessage ?: "خطای ناشناخته"}" }
-                                        }
-                                        messages.add(ChatMessage("assistant", answer))
-                                        busy = false
-                                    }
-                                }
-                            } else if (apiKey.isBlank()) {
-                                messages.add(ChatMessage("assistant", "برای پاسخ آنلاین، ابتدا کلید API را در تنظیمات وارد کن."))
+                            val loaded = offlineModel
+                            if (loaded == null || !offlineMode) {
+                                messages.add(ChatMessage("assistant", "برای استفاده از AJAMI-AI، ابتدا مدل آفلاین را دانلود و بارگذاری کن. این برنامه فقط آفلاین کار می‌کند."))
                             } else {
                                 busy = true
                                 val history = messages.toList()
                                 scope.launch {
-                                    val answer = withContext(Dispatchers.IO) {
-                                        requestChat(endpoint, apiKey, model, history)
+                                    val answer = withContext(Dispatchers.Default) {
+                                        runCatching {
+                                            val transcript = history.takeLast(12).joinToString("\\n") { m ->
+                                                (if (m.role == "user") "کاربر" else "دستیار") + ": " + m.text
+                                            }
+                                            Llama.complete(loaded, prompt = transcript, systemPrompt = "تو دستیار هوش مصنوعی فارسی AJAMI-AI هستی. پاسخ‌ها را دقیق، مفید و به زبان فارسی بده.", maxTokens = 256).text
+                                        }.getOrElse { "خطا در پاسخ آفلاین: ${it.localizedMessage ?: "خطای ناشناخته"}" }
                                     }
                                     messages.add(ChatMessage("assistant", answer))
                                     busy = false
@@ -304,115 +281,6 @@ private fun AjamiApp() {
             }
         }
     }
-
-    if (showSettings) {
-        AlertDialog(
-            onDismissRequest = { showSettings = false },
-            title = { Text("تنظیمات اتصال آنلاین") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = endpoint,
-                        onValueChange = { endpoint = it },
-                        label = { Text("API Base URL") },
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = model,
-                        onValueChange = { model = it },
-                        label = { Text("نام مدل") },
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = apiKey,
-                        onValueChange = { apiKey = it },
-                        label = { Text("API Key") },
-                        singleLine = true
-                    )
-                    Text(
-                        "کلید API روی همین دستگاه ذخیره می‌شود؛ آن را با کسی به اشتراک نگذار.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        prefs.edit()
-                            .putString("endpoint", endpoint.trim())
-                            .putString("model", model.trim())
-                            .putString("api_key", apiKey.trim())
-                            .apply()
-                        showSettings = false
-                    }
-                ) {
-                    Text("ذخیره")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSettings = false }) { Text("بستن") }
-            }
-        )
-    }
-}
-
-private fun requestChat(
-    base: String,
-    key: String,
-    model: String,
-    history: List<ChatMessage>
-): String {
-    return try {
-        val url = URL(base.trim().trimEnd('/') + "/chat/completions")
-        val connection = (url.openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 20000
-            readTimeout = 60000
-            doOutput = true
-            setRequestProperty("Authorization", "Bearer $key")
-            setRequestProperty("Content-Type", "application/json")
-        }
-
-        val jsonMessages = JSONArray()
-        history.takeLast(30).forEach { message ->
-            jsonMessages.put(
-                JSONObject()
-                    .put("role", message.role)
-                    .put("content", message.text)
-            )
-        }
-
-        val requestBody = JSONObject()
-            .put("model", model)
-            .put("messages", jsonMessages)
-            .put("temperature", 0.7)
-
-        connection.outputStream.use { output ->
-            output.write(requestBody.toString().toByteArray(Charsets.UTF_8))
-        }
-
-        val statusCode = connection.responseCode
-        val stream = if (statusCode in 200..299) connection.inputStream else connection.errorStream
-        val responseText = stream.bufferedReader().use { it.readText() }
-        connection.disconnect()
-
-        if (statusCode !in 200..299) {
-            "خطای سرویس ($statusCode): " +
-                runCatching { JSONObject(responseText).optString("error", responseText) }
-                    .getOrDefault(responseText).take(500)
-        } else {
-            JSONObject(responseText)
-                .getJSONArray("choices")
-                .getJSONObject(0)
-                .getJSONObject("message")
-                .getString("content")
-        }
-    } catch (exception: Exception) {
-        "اتصال ناموفق بود: " +
-            (exception.localizedMessage ?: "خطای ناشناخته") +
-            ". آدرس API و اینترنت را بررسی کن."
-    }
-}
 
 
 @Composable
