@@ -5,6 +5,10 @@ on:
   push:
     branches: [ main ]
 
+concurrency:
+  group: ajami-ai-apk-build
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
