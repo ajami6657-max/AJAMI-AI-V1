@@ -24,6 +24,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import dev.ffmpegkit.llama.Llama
+import dev.ffmpegkit.llama.LlamaConfig
+import dev.ffmpegkit.llama.LlamaModel
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -51,6 +54,9 @@ private fun AjamiApp() {
     var busy by remember { mutableStateOf(false) }
     var modelStatus by remember { mutableStateOf("مدل آفلاین هنوز دانلود نشده است.") }
     var modelDownloading by remember { mutableStateOf(false) }
+    var offlineModel by remember { mutableStateOf<LlamaModel?>(null) }
+    var offlineLoading by remember { mutableStateOf(false) }
+    var offlineMode by remember { mutableStateOf(false) }
     val modelFileName = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
     val modelFile = remember(context) {
         File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), modelFileName)
@@ -124,7 +130,27 @@ private fun AjamiApp() {
                             val prompt = input.trim()
                             input = ""
                             messages.add(ChatMessage("user", prompt))
-                            if (apiKey.isBlank()) {
+                            if (offlineMode) {
+                                val loaded = offlineModel
+                                if (loaded == null) {
+                                    messages.add(ChatMessage("assistant", "ابتدا مدل را دانلود و بارگذاری کن."))
+                                } else {
+                                    busy = true
+                                    val history = messages.toList()
+                                    scope.launch {
+                                        val answer = withContext(Dispatchers.Default) {
+                                            runCatching {
+                                                val transcript = history.takeLast(12).joinToString("\\n") { m ->
+                                                    (if (m.role == "user") "کاربر" else "دستیار") + ": " + m.text
+                                                }
+                                                Llama.complete(loaded, prompt = transcript, systemPrompt = "تو دستیار هوش مصنوعی فارسی AJAMI-AI هستی. پاسخ‌ها را دقیق، مفید و به زبان فارسی بده.", maxTokens = 256).text
+                                            }.getOrElse { "خطا در پاسخ آفلاین: ${it.localizedMessage ?: "خطای ناشناخته"}" }
+                                        }
+                                        messages.add(ChatMessage("assistant", answer))
+                                        busy = false
+                                    }
+                                }
+                            } else if (apiKey.isBlank()) {
                                 messages.add(ChatMessage("assistant", "برای پاسخ آنلاین، ابتدا کلید API را در تنظیمات وارد کن."))
                             } else {
                                 busy = true
@@ -157,6 +183,29 @@ private fun AjamiApp() {
                         Text("مدل هوش مصنوعی آفلاین", color = gold, style = MaterialTheme.typography.titleMedium)
                         Text("Qwen 2.5 • 1.5B • Q4_K_M • حدود ۱٫۱۲ گیگابایت", color = Color.White)
                         Text(modelStatus, color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+                        if (modelFile.exists() && offlineModel == null) {
+                            Button(enabled = !offlineLoading, onClick = {
+                                offlineLoading = true
+                                modelStatus = "در حال بارگذاری مدل در حافظه گوشی..."
+                                scope.launch {
+                                    try {
+                                        val loaded = withContext(Dispatchers.Default) {
+                                            Llama.loadModel(modelFile.absolutePath, LlamaConfig(contextSize = 2048, threads = 4, gpuLayers = 0))
+                                        }
+                                        offlineModel = loaded
+                                        modelStatus = "مدل بارگذاری شد؛ گفت‌وگوی آفلاین آماده استفاده است."
+                                    } catch (e: Exception) {
+                                        modelStatus = "بارگذاری مدل ناموفق بود: ${e.localizedMessage ?: "خطای ناشناخته"}"
+                                    } finally { offlineLoading = false }
+                                }
+                            }) { Text(if (offlineLoading) "در حال بارگذاری..." else "بارگذاری مدل برای چت آفلاین") }
+                        }
+                        if (offlineModel != null) {
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Text("حالت آفلاین", color = Color.White, modifier = Modifier.weight(1f))
+                                Switch(checked = offlineMode, onCheckedChange = { offlineMode = it })
+                            }
+                        }
                         Button(
                             enabled = !modelDownloading && !modelFile.exists(),
                             onClick = {
