@@ -1,37 +1,32 @@
 # AJAMI-AI V1.0.0
 
-Persian-first Android AI assistant for online and offline workflows.
+Persian-first Android AI assistant with a strong offline-first goal.
 
-## Confirmed offline feature scope
-- Offline Persian chat and coding assistant using a locally stored language model.
-- Offline image generation using a separately downloaded image model, subject to device memory and thermal limits.
-- Offline video creation in two modes:
-  1. Text-to-video with a local generative video model, experimental and hardware-dependent.
-  2. Photo-to-video using local motion effects, pan/zoom, transitions, captions and optional audio. This is a practical offline editor workflow, not the same as generative text-to-video.
-- Model downloads and storage are separate from the APK so users can choose which large models to install.
+## User packaging preference
+The user accepts a very large APK. Therefore, prefer bundling compatible offline engines and models inside the install package when technically and legally feasible, rather than excluding them merely to keep the APK small. If a model is too large for reliable APK packaging, provide an optional offline model pack that can be downloaded once and then used without internet. Do not claim that every model is embedded until the final APK contents are inspected.
 
-## Offline audio feature scope
-- Persian text-to-speech with selectable male/female voice options where supported by the installed local voice model.
-- Offline narration and spoken responses.
-- Offline maddahi/recitation creation workflow with selectable male/female synthetic voices, subject to a locally installed voice model and lawful use of any reference voice; no imitation of a real person without permission.
-- Experimental local music and melody generation using a separate downloaded audio model; performance and quality depend on device compatibility.
-- Audio export and playback (WAV first; MP3 only when a verified encoder is integrated).
-- Speech synthesis and music generation are separate engines and must be tested independently. No cloud API or paid subscription is required for local inference after model download.
+## Offline feature scope
+- Persian chat and coding assistant using local language models.
+- Text-to-image generation using a local image model.
+- Offline video creation: practical photo-to-video editing (motion, pan/zoom, transitions, captions, audio) and experimental generative text/image-to-video only where a compatible model and hardware permit.
+- Persian text-to-speech, speech-to-text, narration, synthetic voice options, and audio export.
+- Offline music and melody generation, and a maddahi/recitation workflow using synthetic voices; no unauthorized real-person voice imitation.
+- Offline translation and other local helper tools.
+- Online weather and optional online services, with clear offline/online indicators.
 
-## Device compatibility
-Target device currently discussed: Samsung Galaxy A53 (Exynos 1280, 8 GB RAM). Full generative text-to-video and large image models may be too slow or may fail due to RAM, GPU/NPU and thermal constraints. The app must label experimental functions honestly and never present a placeholder as a working AI engine.
+## Device and performance constraints
+Target phone: Samsung Galaxy A53, Exynos 1280, 8 GB RAM, arm64. APK size is not a user concern. RAM, compute throughput, thermal limits, Android package/install limits, model licensing, and available storage remain real constraints. Large video-generation models may be impractical on this device even if the user accepts a huge APK. Prefer smaller compatible models and test each engine on the actual phone.
 
-## Implementation status
-- Basic Compose chat interface and configurable OpenAI-compatible online endpoint: implemented.
-- Offline GGUF model download manager for Qwen2.5-1.5B-Instruct Q4_K_M: implemented; downloads the approximately 1.12 GB model to app-specific storage. This is model acquisition only, not inference.
-- Offline inference engine: not yet integrated; LiteRT dependency was temporarily removed because it caused Kotlin compiler metadata incompatibility in CI. Reintroduce only after selecting a compatible runtime/compiler combination and verifying an actual on-device model run.
-- Offline coding model: planned, not implemented.
-- Offline image generation: planned, not implemented.
-- Offline video modes (text-to-video and photo-to-video): planned, not implemented.
-- Persistent conversation history, media generation and model manager: not yet implemented.
+## Current implementation status
+- Basic Jetpack Compose chat interface and configurable OpenAI-compatible online endpoint: implemented.
+- Qwen2.5-1.5B-Instruct Q4_K_M model downloader: implemented; model download is approximately 1.12 GB.
+- llama.cpp Android runtime dependency and initial offline chat integration code: added to the project; build and real on-device inference must still be verified before calling offline chat functional.
+- Offline coding, image generation, generative video, audio/music generation, offline speech, and translation engines: not yet implemented or device-verified.
 
-## Important implementation policy
-A feature is marked ready only after its engine is integrated and tested on a real Android device. Online services require internet and provider credentials. Large offline models are downloaded separately, not bundled into the initial APK. Medical features, if added, provide educational information and safety guidance, not diagnosis or prescriptions.
+## Delivery policy
+No placeholder buttons or fake capability claims. A feature is complete only after its real local engine is integrated, its model is available offline, and an airplane-mode test on the target Android phone succeeds. Include model files in the APK when practical; otherwise provide a clearly identified one-time model pack. All engines must work without paid APIs after installation/model acquisition. Check and preserve model and library licenses.
+
+Medical information, if added, is educational and safety-oriented, not a diagnosis or prescription.
 
 ## Build
-The Android project is built with Gradle and GitHub Actions. An APK is a deliverable only after a successful workflow build and installation test.
+The Android project is built with Gradle and GitHub Actions. A successful CI build proves compilation only; it does not prove on-device functionality.
