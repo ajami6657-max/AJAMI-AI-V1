@@ -120,7 +120,7 @@ private fun AjamiApp() {
                 )
             },
             bottomBar = {
-                Row(
+                if (!studioOpen && !imageStudioOpen && !videoStudioOpen) Row(
                     modifier = Modifier.fillMaxWidth().padding(10.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -187,6 +187,7 @@ private fun AjamiApp() {
                         onExport = { exportPoster(context, posterTitle, posterSubtitle) }
                     )
                 }
+                if (!videoStudioOpen && !imageStudioOpen && !studioOpen) {
                 Text("دستیار فارسی • نسخه 1.0.0", color = gold, style = MaterialTheme.typography.labelLarge)
                 Spacer(modifier = Modifier.height(8.dp))
                 Card(
@@ -319,6 +320,7 @@ private fun AjamiApp() {
                     if (busy) {
                         item { CircularProgressIndicator(color = gold) }
                     }
+                }
                 }
             }
         }
