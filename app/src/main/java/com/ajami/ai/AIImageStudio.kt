@@ -21,13 +21,15 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import dev.ffmpegkit.llama.Llama
+import dev.ffmpegkit.llama.LlamaModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
-fun AIImageStudio() {
+fun AIImageStudio(languageModel: LlamaModel?) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val modelName = "v1-5-pruned_Q4_0.gguf"
@@ -80,7 +82,7 @@ fun AIImageStudio() {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("تصویرساز هوش مصنوعی آفلاین", color = gold, style = MaterialTheme.typography.titleMedium)
                 Text("Stable Diffusion 1.5 • مدل Q4_0 • خروجی اولیه 512×512", color = Color.White)
-                Text("مدل حدود ۳٫۱ گیگابایت فضا می‌خواهد. پس از دانلود، هیچ API یا سروری استفاده نمی‌شود.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+                Text("مدل حدود ۳٫۱ گیگابایت فضا می‌خواهد. پس از دانلود، هیچ API یا سروری استفاده نمی‌شود. برای درک بهتر توصیف‌ها، مدل چت آفلاین Qwen را نیز بارگذاری کن.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                 Text(status, color = Color.White, style = MaterialTheme.typography.bodySmall)
 
                 if (!modelFile.exists() || modelFile.length() < 2_800_000_000L) {
@@ -130,10 +132,21 @@ fun AIImageStudio() {
                                         if (!modelFile.exists() || modelFile.length() < 2_800_000_000L) error("فایل مدل کامل نیست.")
                                         engine.setExecutable(true)
                                         val output = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "ajami_image_" + System.currentTimeMillis() + ".png")
+                                        val rawPrompt = prompt.trim()
+                                        val hasPersian = Regex("[\\u0600-\\u06FF]").containsMatchIn(rawPrompt)
+                                        val imagePrompt = if (hasPersian) {
+                                            val translator = languageModel ?: error("برای تبدیل توصیف فارسی به انگلیسی، ابتدا مدل چت آفلاین Qwen را بارگذاری کن؛ یا توصیف را انگلیسی بنویس.")
+                                            Llama.complete(
+                                                translator,
+                                                prompt = rawPrompt,
+                                                systemPrompt = "Translate the user's image description into a detailed natural English text-to-image prompt. Return only the translated prompt, no explanations.",
+                                                maxTokens = 160
+                                            ).text.trim()
+                                        } else rawPrompt
                                         val process = ProcessBuilder(
                                             engine.absolutePath,
                                             "-m", modelFile.absolutePath,
-                                            "-p", prompt.trim(),
+                                            "-p", imagePrompt,
                                             "-o", output.absolutePath,
                                             "-W", "512", "-H", "512",
                                             "--steps", "15",
