@@ -51,6 +51,8 @@ class MainActivity : ComponentActivity() {
 private fun AjamiApp() {
     val context = androidx.compose.ui.platform.LocalContext.current
     var studioOpen by remember { mutableStateOf(false) }
+    var assistantMode by remember { mutableStateOf("گفت‌وگوی عمومی") }
+    var modeMenuExpanded by remember { mutableStateOf(false) }
     var posterTitle by remember { mutableStateOf("عنوان پوستر شما") }
     var posterSubtitle by remember { mutableStateOf("متن توضیحات را اینجا بنویسید") }
     var input by remember { mutableStateOf("") }
@@ -145,7 +147,15 @@ private fun AjamiApp() {
                                             val transcript = history.takeLast(12).joinToString("\\n") { m ->
                                                 (if (m.role == "user") "کاربر" else "دستیار") + ": " + m.text
                                             }
-                                            Llama.complete(loaded, prompt = transcript, systemPrompt = "تو دستیار هوش مصنوعی فارسی AJAMI-AI هستی. پاسخ‌ها را دقیق، مفید و به زبان فارسی بده.", maxTokens = 256).text
+                                            val taskInstruction = when (assistantMode) {
+                                                "برنامه‌نویسی" -> "نقش تو دستیار برنامه‌نویسی آفلاین هستی. کد درست، کامل و قابل اجرا بنویس؛ زبان و نسخه را مشخص کن، خطاها را توضیح بده و از ساختن کتابخانه یا API خیالی خودداری کن."
+                                                "ترجمه" -> "نقش تو مترجم دقیق هستی. متن را به زبان درخواستی ترجمه کن، معنی و لحن را حفظ کن و اگر زبان مقصد مشخص نیست سؤال کوتاه بپرس."
+                                                "خلاصه‌سازی" -> "متن ورودی را بدون افزودن اطلاعات ساختگی خلاصه کن. نکات کلیدی را منظم و کوتاه ارائه بده."
+                                                "نگارش و تولید متن" -> "در نگارش فارسی حرفه‌ای کمک کن؛ متن روشن، منسجم و متناسب با مخاطب تولید کن و اطلاعات نامعلوم را جعل نکن."
+                                                "آموزش و حل مسئله" -> "مانند معلم صبور عمل کن؛ مسئله را مرحله‌به‌مرحله توضیح بده، مثال ساده بزن و در صورت نامشخص بودن داده‌ها فرضیات را روشن کن."
+                                                else -> "به‌عنوان دستیار عمومی فارسی پاسخ دقیق، مفید و روشن بده."
+                                            }
+                                            Llama.complete(loaded, prompt = transcript, systemPrompt = "تو دستیار هوش مصنوعی فارسی AJAMI-AI هستی. $taskInstruction اگر پاسخ را نمی‌دانی، صادقانه بگو. بدون اینترنت و API کار می‌کنی.", maxTokens = 384).text
                                         }.getOrElse { "خطا در پاسخ آفلاین: ${it.localizedMessage ?: "خطای ناشناخته"}" }
                                     }
                                     messages.add(ChatMessage("assistant", answer))
@@ -248,6 +258,32 @@ private fun AjamiApp() {
                                 }
                             }
                         ) { Text(if (modelDownloading) "در حال دانلود..." else if (modelFile.exists()) "مدل موجود است" else "دانلود مدل آفلاین") }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Text("حالت دستیار:", color = gold)
+                    Box {
+                        OutlinedButton(onClick = { modeMenuExpanded = true }) {
+                            Text(assistantMode)
+                        }
+                        DropdownMenu(
+                            expanded = modeMenuExpanded,
+                            onDismissRequest = { modeMenuExpanded = false }
+                        ) {
+                            listOf("گفت‌وگوی عمومی", "برنامه‌نویسی", "ترجمه", "خلاصه‌سازی", "نگارش و تولید متن", "آموزش و حل مسئله").forEach { mode ->
+                                DropdownMenuItem(
+                                    text = { Text(mode) },
+                                    onClick = {
+                                        assistantMode = mode
+                                        modeMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
