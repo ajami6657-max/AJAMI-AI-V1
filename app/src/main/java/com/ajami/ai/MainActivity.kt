@@ -229,7 +229,7 @@ private fun AjamiApp() {
                             onClick = {
                                 try {
                                     val request = DownloadManager.Request(
-                                        Uri.parse("https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf?download=true")
+                                        Uri.parse("https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf?download=true")
                                     )
                                         .setTitle("دانلود مدل آفلاین AJAMI-AI")
                                         .setDescription("مدل زبانی Qwen 2.5 کوچک • حدود ۴۹۱ مگابایت")
@@ -281,7 +281,7 @@ private fun AjamiApp() {
             }
         }
     }
-
+}
 
 @Composable
 private fun PosterStudio(
