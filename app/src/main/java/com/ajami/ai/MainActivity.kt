@@ -1,6 +1,14 @@
 package com.ajami.ai
 
 import android.os.Bundle
+import android.graphics.Bitmap
+import android.graphics.Canvas as NativeCanvas
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.content.ContentValues
+import android.provider.MediaStore
+import android.os.Build
+import android.widget.Toast
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -50,6 +58,9 @@ private fun AjamiApp() {
     var apiKey by remember { mutableStateOf(prefs.getString("api_key", "") ?: "") }
     var model by remember { mutableStateOf(prefs.getString("model", "gpt-4o-mini") ?: "") }
     var showSettings by remember { mutableStateOf(false) }
+    var studioOpen by remember { mutableStateOf(false) }
+    var posterTitle by remember { mutableStateOf("عنوان پوستر شما") }
+    var posterSubtitle by remember { mutableStateOf("متن توضیحات را اینجا بنویسید") }
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var modelStatus by remember { mutableStateOf("مدل آفلاین هنوز دانلود نشده است.") }
@@ -108,7 +119,7 @@ private fun AjamiApp() {
             topBar = {
                 TopAppBar(
                     title = { Text("AJAMI-AI", color = gold) },
-                    actions = { TextButton(onClick = { showSettings = true }) { Text("تنظیمات") } },
+                    actions = { TextButton(onClick = { studioOpen = !studioOpen }) { Text(if (studioOpen) "چت" else "استودیو") }; TextButton(onClick = { showSettings = true }) { Text("تنظیمات") } },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0B2140))
                 )
             },
@@ -173,6 +184,15 @@ private fun AjamiApp() {
             Column(
                 modifier = Modifier.fillMaxSize().padding(innerPadding).padding(12.dp)
             ) {
+                if (studioOpen) {
+                    PosterStudio(
+                        title = posterTitle,
+                        onTitleChange = { posterTitle = it },
+                        subtitle = posterSubtitle,
+                        onSubtitleChange = { posterSubtitle = it },
+                        onExport = { exportPoster(context, posterTitle, posterSubtitle) }
+                    )
+                }
                 Text("دستیار فارسی • نسخه 1.0.0", color = gold, style = MaterialTheme.typography.labelLarge)
                 Spacer(modifier = Modifier.height(8.dp))
                 Card(
@@ -372,4 +392,95 @@ private fun requestChat(
             (exception.localizedMessage ?: "خطای ناشناخته") +
             ". آدرس API و اینترنت را بررسی کن."
     }
+}
+
+
+@Composable
+private fun PosterStudio(
+    title: String,
+    onTitleChange: (String) -> Unit,
+    subtitle: String,
+    onSubtitleChange: (String) -> Unit,
+    onExport: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF10294A))
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("استودیوی طراحی پوستر آفلاین", color = Color(0xFFFFC857), style = MaterialTheme.typography.titleMedium)
+            Text("طراحی محلی بدون API؛ متن فارسی را وارد کن و تصویر PNG بساز.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(value = title, onValueChange = onTitleChange, label = { Text("عنوان پوستر") }, modifier = Modifier.fillMaxWidth(), singleLine = false)
+            OutlinedTextField(value = subtitle, onValueChange = onSubtitleChange, label = { Text("توضیحات") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+            Button(onClick = onExport, modifier = Modifier.fillMaxWidth()) { Text("ساخت و ذخیره پوستر PNG") }
+        }
+    }
+}
+
+private fun exportPoster(context: Context, title: String, subtitle: String) {
+    try {
+        val bitmap = Bitmap.createBitmap(1080, 1350, Bitmap.Config.ARGB_8888)
+        val canvas = NativeCanvas(bitmap)
+        canvas.drawColor(android.graphics.Color.rgb(7, 26, 53))
+        val accent = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(255, 200, 87); style = Paint.Style.FILL }
+        canvas.drawRoundRect(70f, 70f, 1010f, 1280f, 42f, 42f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.rgb(16, 41, 74); style = Paint.Style.FILL })
+        canvas.drawRoundRect(110f, 180f, 970f, 194f, 7f, 7f, accent)
+        val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.WHITE
+            textSize = 76f
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+        }
+        val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(220, 230, 242)
+            textSize = 44f
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            textAlign = Paint.Align.CENTER
+        }
+        drawCenteredLines(canvas, title.ifBlank { "پوستر جدید" }, titlePaint, 540f, 530f, 96f, 3)
+        drawCenteredLines(canvas, subtitle, bodyPaint, 540f, 760f, 68f, 7)
+        val footer = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(255, 200, 87)
+            textSize = 30f
+            textAlign = Paint.Align.CENTER
+        }
+        canvas.drawText("طراحی شده با AJAMI-AI", 540f, 1190f, footer)
+        if (Build.VERSION.SDK_INT >= 29) {
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, "AJAMI_Poster_${System.currentTimeMillis()}.png")
+                put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/AJAMI-AI")
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            }
+            val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                ?: error("ساخت فایل در گالری ناموفق بود")
+            context.contentResolver.openOutputStream(uri)?.use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                ?: error("ذخیره تصویر ناموفق بود")
+            values.clear()
+            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+            context.contentResolver.update(uri, values, null, null)
+        } else {
+            val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "AJAMI-AI").apply { mkdirs() }
+            File(dir, "AJAMI_Poster_${System.currentTimeMillis()}.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        bitmap.recycle()
+        Toast.makeText(context, "پوستر PNG ساخته و ذخیره شد.", Toast.LENGTH_LONG).show()
+    } catch (e: Exception) {
+        Toast.makeText(context, "خطا در ساخت پوستر: ${e.localizedMessage ?: "نامشخص"}", Toast.LENGTH_LONG).show()
+    }
+}
+
+private fun drawCenteredLines(canvas: NativeCanvas, text: String, paint: Paint, centerX: Float, startY: Float, lineHeight: Float, maxLines: Int) {
+    val words = text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    val lines = mutableListOf<String>()
+    var line = ""
+    for (word in words) {
+        val candidate = if (line.isEmpty()) word else "$line $word"
+        if (paint.measureText(candidate) > 850f && line.isNotEmpty()) {
+            lines.add(line)
+            line = word
+        } else line = candidate
+    }
+    if (line.isNotEmpty()) lines.add(line)
+    lines.take(maxLines).forEachIndexed { index, value -> canvas.drawText(value, centerX, startY + index * lineHeight, paint) }
 }
