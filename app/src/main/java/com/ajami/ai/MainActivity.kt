@@ -1,6 +1,14 @@
 package com.ajami.ai
 
 import android.os.Bundle
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.Uri
+import android.os.Environment
+import java.io.File
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -9,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -40,6 +49,47 @@ private fun AjamiApp() {
     var showSettings by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var modelStatus by remember { mutableStateOf("مدل آفلاین هنوز دانلود نشده است.") }
+    var modelDownloading by remember { mutableStateOf(false) }
+    val modelFileName = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    val modelFile = remember(context) {
+        File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), modelFileName)
+    }
+    LaunchedEffect(Unit) {
+        if (modelFile.exists() && modelFile.length() > 900_000_000L) {
+            modelStatus = "مدل دانلود شده است؛ موتور اجرای آفلاین هنوز در حال توسعه است."
+        }
+    }
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                if (intent?.action == DownloadManager.ACTION_DOWNLOAD_COMPLETE) {
+                    val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+                    val prefsDownload = context.getSharedPreferences("ajami_downloads", 0)
+                    if (id == prefsDownload.getLong("model_download_id", -2L)) {
+                        val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                        val query = DownloadManager.Query().setFilterById(id)
+                        manager.query(query).use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                                val status = if (statusIndex >= 0) cursor.getInt(statusIndex) else -1
+                                if (status == DownloadManager.STATUS_SUCCESSFUL && modelFile.exists()) {
+                                    modelStatus = "مدل با موفقیت دانلود شد؛ برای پاسخ آفلاین هنوز باید موتور اجرا متصل شود."
+                                } else {
+                                    val reasonIndex = cursor.getColumnIndex(DownloadManager.COLUMN_REASON)
+                                    val reason = if (reasonIndex >= 0) cursor.getInt(reasonIndex) else -1
+                                    modelStatus = "دانلود ناموفق بود (کد $reason). اینترنت و فضای ذخیره‌سازی را بررسی کن."
+                                }
+                            }
+                        }
+                        modelDownloading = false
+                    }
+                }
+            }
+        }
+        context.registerReceiver(receiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_NOT_EXPORTED)
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
     val messages = remember {
         mutableStateListOf(ChatMessage("assistant", "سلام! برای گفت‌وگوی آنلاین، اتصال API را از تنظیمات وارد کن."))
     }
@@ -98,6 +148,41 @@ private fun AjamiApp() {
                 modifier = Modifier.fillMaxSize().padding(innerPadding).padding(12.dp)
             ) {
                 Text("دستیار فارسی • نسخه 1.0.0", color = gold, style = MaterialTheme.typography.labelLarge)
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF10294A))
+                ) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("مدل هوش مصنوعی آفلاین", color = gold, style = MaterialTheme.typography.titleMedium)
+                        Text("Qwen 2.5 • 1.5B • Q4_K_M • حدود ۱٫۱۲ گیگابایت", color = Color.White)
+                        Text(modelStatus, color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+                        Button(
+                            enabled = !modelDownloading && !modelFile.exists(),
+                            onClick = {
+                                try {
+                                    val request = DownloadManager.Request(
+                                        Uri.parse("https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf?download=true")
+                                    )
+                                        .setTitle("دانلود مدل آفلاین AJAMI-AI")
+                                        .setDescription("مدل زبانی Qwen 2.5 • حدود ۱٫۱۲ گیگابایت")
+                                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                        .setAllowedOverMetered(true)
+                                        .setAllowedOverRoaming(false)
+                                        .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, modelFileName)
+                                    val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                                    val id = manager.enqueue(request)
+                                    context.getSharedPreferences("ajami_downloads", 0).edit()
+                                        .putLong("model_download_id", id).apply()
+                                    modelDownloading = true
+                                    modelStatus = "دانلود آغاز شد؛ می‌توانی از اعلان‌های گوشی پیشرفت آن را ببینی."
+                                } catch (e: Exception) {
+                                    modelStatus = "شروع دانلود ممکن نشد: ${e.localizedMessage ?: "خطای ناشناخته"}"
+                                }
+                            }
+                        ) { Text(if (modelDownloading) "در حال دانلود..." else if (modelFile.exists()) "مدل موجود است" else "دانلود مدل آفلاین") }
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyColumn(
                     modifier = Modifier.weight(1f),
