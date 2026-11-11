@@ -6,6 +6,16 @@ Persian-first Android AI assistant with a strong offline-first goal.
 The user accepts a very large APK. Therefore, prefer bundling compatible offline engines and models inside the install package when technically and legally feasible, rather than excluding them merely to keep the APK small. If a model is too large for reliable APK packaging, provide an optional offline model pack that can be downloaded once and then used without internet. Do not claim that every model is embedded until the final APK contents are inspected.
 
 ## Offline feature scope
+## Offline image studio requirements (no API)
+The image maker must work entirely on-device after installation/model acquisition. It must not call any cloud image API, proxy, remote inference endpoint, or require an API key. It should support:
+- Text-to-image generation from Persian or English prompts using a locally running image-generation model.
+- Poster, advertising creative, social-media post/story, banner, flyer, invitation, thumbnail, logo/concept and product-promo layouts.
+- Local text placement, typography, shapes, frames, stickers, backgrounds, and composition tools so Persian text can be rendered legibly and accurately without relying on a generative model to spell it.
+- Importing a photo from the phone and editing/compositing it locally; optional AI-assisted edits only when a compatible local model is installed.
+- Export to common image formats supported by Android.
+The UI must clearly distinguish true AI image generation from template-based local design tools. No cloud/API fallback is allowed. If the required local model is missing, explain that the model must be installed; never silently send prompts or images to a server.
+
+
 - Persian chat and coding assistant using local language models.
 - Text-to-image generation using a local image model.
 - Offline video creation: practical photo-to-video editing (motion, pan/zoom, transitions, captions, audio) and experimental generative text/image-to-video only where a compatible model and hardware permit.
