@@ -174,7 +174,7 @@ private fun AjamiApp() {
                 modifier = Modifier.fillMaxSize().padding(innerPadding).padding(12.dp)
             ) {
                 if (imageStudioOpen) {
-                    AIImageStudio()
+                    AIImageStudio(offlineModel)
                 } else if (studioOpen) {
                     PosterStudio(
                         title = posterTitle,
