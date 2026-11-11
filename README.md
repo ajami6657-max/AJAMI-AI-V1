@@ -29,9 +29,11 @@ Target phone: Samsung Galaxy A53, Exynos 1280, 8 GB RAM, arm64. APK size is not 
 
 ## Current implementation status
 - Basic Jetpack Compose chat interface and configurable OpenAI-compatible online endpoint: implemented.
-- Qwen2.5-1.5B-Instruct Q4_K_M model downloader: implemented; model download is approximately 1.12 GB.
-- llama.cpp Android runtime dependency and initial offline chat integration code: added to the project; build and real on-device inference must still be verified before calling offline chat functional.
-- Offline coding, image generation, generative video, audio/music generation, offline speech, and translation engines: not yet implemented or device-verified.
+- Qwen2.5-0.5B-Instruct Q4_K_M local chat model downloader and chat UI: implemented; on-device behavior still requires phone verification.
+- Offline assistant task modes (general chat, coding, translation, summarization, writing, tutoring): implemented as task prompts over the same small local language model, not separate specialist models.
+- Offline Stable Diffusion 1.5 image studio UI and local prompt translation hook: added in source; native Android ARM64 engine is being built in CI and the complete flow is not yet verified on the target phone.
+- Stable Diffusion 1.5 Q4_0 model: optional one-time local download (about 3.05 GB); not bundled in the APK.
+- Offline video generation, audio/music generation, and speech engines: not yet implemented or device-verified.
 
 ## Delivery policy
 No placeholder buttons or fake capability claims. A feature is complete only after its real local engine is integrated, its model is available offline, and an airplane-mode test on the target Android phone succeeds. Include model files in the APK when practical; otherwise provide a clearly identified one-time model pack. All engines must work without paid APIs after installation/model acquisition. Check and preserve model and library licenses.
