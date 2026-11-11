@@ -23,6 +23,7 @@ Target device currently discussed: Samsung Galaxy A53 (Exynos 1280, 8 GB RAM). F
 
 ## Implementation status
 - Basic Compose chat interface and configurable OpenAI-compatible online endpoint: implemented.
+- Offline GGUF model download manager for Qwen2.5-1.5B-Instruct Q4_K_M: implemented; downloads the approximately 1.12 GB model to app-specific storage. This is model acquisition only, not inference.
 - Offline inference engine: not yet integrated; LiteRT dependency was temporarily removed because it caused Kotlin compiler metadata incompatibility in CI. Reintroduce only after selecting a compatible runtime/compiler combination and verifying an actual on-device model run.
 - Offline coding model: planned, not implemented.
 - Offline image generation: planned, not implemented.
