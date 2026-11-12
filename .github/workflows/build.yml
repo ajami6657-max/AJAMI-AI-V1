@@ -3,7 +3,7 @@ name: Build AJAMI-AI APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main, 'feature/mobilei2v-offline-engine' ]
+    branches: [ main, 'feature/mobilei2v-offline-engine', 'feature/audio-i2v-next' ]
 
 concurrency:
   group: ajami-ai-apk-build
