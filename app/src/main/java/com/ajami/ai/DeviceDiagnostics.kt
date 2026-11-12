@@ -12,10 +12,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 
 @Composable
 fun DeviceDiagnostics() {
     val context = androidx.compose.ui.platform.LocalContext.current
+    var vulkanBusy by remember { mutableStateOf(false) }
+    var vulkanResult by remember { mutableStateOf("آزمایش عملی هنوز اجرا نشده است.") }
+    val scope = rememberCoroutineScope()
     val pm = context.packageManager
     val features = pm.systemAvailableFeatures.orEmpty()
     val vulkanLevel = features.firstOrNull { it.name == PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL }?.version ?: 0
@@ -49,6 +56,17 @@ fun DeviceDiagnostics() {
                 )
             }
         }
-        Text("مرحلهٔ بعد: تست native Vulkan روی GPU واقعی و اجرای یک کرنل آزمایشی؛ این صفحه هنوز آن تست را انجام نمی‌دهد.", color = Color.LightGray)
+        Button(enabled = !vulkanBusy, onClick = {
+            vulkanBusy = true
+            vulkanResult = "در حال ساخت دستگاه Vulkan و ارسال فرمان آزمایشی..."
+            scope.launch {
+                vulkanResult = withContext(Dispatchers.IO) { VulkanProbe.execute() }
+                vulkanBusy = false
+            }
+        }, modifier = Modifier.fillMaxWidth()) { Text(if (vulkanBusy) "در حال آزمایش..." else "اجرای آزمایش واقعی Vulkan") }
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF10294A))) {
+            Text(vulkanResult, modifier = Modifier.fillMaxWidth().padding(12.dp), color = Color.White)
+        }
+        Text("این تست ایجاد Instance/Device، انتخاب صف محاسباتی، تخصیص بافر و ارسال فرمان انتقال به صف GPU را بررسی می‌کند؛ هنوز اجرای مدل ویدئوساز یا Shader یادگیری عمیق نیست.", color = Color.LightGray)
     }
 }
