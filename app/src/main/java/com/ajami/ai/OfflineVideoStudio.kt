@@ -29,32 +29,76 @@ fun OfflineVideoStudio() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var inputFile by remember { mutableStateOf<File?>(null) }
-    var status by remember { mutableStateOf("یک ویدئو از حافظه گوشی انتخاب کن. پردازش و تدوین روی خود گوشی انجام می‌شود.") }
+    var photoFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+    var audioFile by remember { mutableStateOf<File?>(null) }
+    var status by remember { mutableStateOf("برای ساخت فیلم، چند عکس انتخاب کن. همه پردازش‌ها روی گوشی انجام می‌شوند.") }
     var busy by remember { mutableStateOf(false) }
     var trimSeconds by remember { mutableStateOf("15") }
     var lastOutput by remember { mutableStateOf<File?>(null) }
+    var aspect by remember { mutableStateOf("عمودی ۹:۱۶") }
+    var secondsPerPhoto by remember { mutableStateOf("3") }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+    suspend fun copyUri(uri: Uri, prefix: String, fallbackExt: String): File = withContext(Dispatchers.IO) {
+        val mime = context.contentResolver.getType(uri).orEmpty()
+        val ext = when {
+            mime.contains("png") -> "png"
+            mime.contains("webp") -> "webp"
+            mime.contains("jpeg") -> "jpg"
+            mime.contains("mp3") -> "mp3"
+            mime.contains("wav") -> "wav"
+            mime.contains("ogg") -> "ogg"
+            mime.contains("m4a") || mime.contains("mp4") -> "m4a"
+            else -> fallbackExt
+        }
+        val file = File(context.cacheDir, prefix + "_" + System.currentTimeMillis() + "_" + (0..99999).random() + "." + ext)
+        context.contentResolver.openInputStream(uri)?.use { source ->
+            file.outputStream().use { target -> source.copyTo(target) }
+        } ?: error("خواندن فایل انتخاب‌شده ممکن نیست.")
+        file
+    }
+
+    val videoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             busy = true
-            status = "در حال آماده‌سازی فایل ویدئو..."
             scope.launch {
                 try {
-                    val copied = withContext(Dispatchers.IO) {
-                        val file = File(context.cacheDir, "ajami_input_" + System.currentTimeMillis() + ".video")
-                        context.contentResolver.openInputStream(uri)?.use { source ->
-                            file.outputStream().use { target -> source.copyTo(target) }
-                        } ?: error("خواندن فایل انتخاب‌شده ممکن نیست.")
-                        file
-                    }
-                    inputFile = copied
+                    inputFile = copyUri(uri, "ajami_video", "mp4")
                     lastOutput = null
-                    status = "ویدئو آماده است: " + copied.name
+                    status = "ویدئو آماده است."
                 } catch (e: Exception) {
                     status = "بازکردن ویدئو ناموفق بود: " + (e.localizedMessage ?: "خطا")
-                } finally {
-                    busy = false
-                }
+                } finally { busy = false }
+            }
+        }
+    }
+
+    val photosPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            busy = true
+            status = "در حال آماده‌سازی عکس‌ها..."
+            scope.launch {
+                try {
+                    val copied = uris.take(30).map { copyUri(it, "ajami_photo", "jpg") }
+                    photoFiles = copied
+                    lastOutput = null
+                    status = copied.size.toString() + " عکس آمادهٔ ساخت فیلم است."
+                } catch (e: Exception) {
+                    status = "آماده‌سازی عکس‌ها ناموفق بود: " + (e.localizedMessage ?: "خطا")
+                } finally { busy = false }
+            }
+        }
+    }
+
+    val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            busy = true
+            scope.launch {
+                try {
+                    audioFile = copyUri(uri, "ajami_music", "m4a")
+                    status = "موسیقی پس‌زمینه انتخاب شد."
+                } catch (e: Exception) {
+                    status = "بازکردن صدا ناموفق بود: " + (e.localizedMessage ?: "خطا")
+                } finally { busy = false }
             }
         }
     }
@@ -78,20 +122,97 @@ fun OfflineVideoStudio() {
         }
     }
 
+    fun createSlideshow() {
+        if (photoFiles.isEmpty()) return
+        val duration = secondsPerPhoto.toIntOrNull()?.coerceIn(1, 20) ?: 3
+        val vertical = aspect == "عمودی ۹:۱۶"
+        val width = if (vertical) 720 else 1280
+        val height = if (vertical) 1280 else 720
+        val destination = File(context.cacheDir, "ajami_film_" + System.currentTimeMillis() + ".mp4")
+        val filterParts = photoFiles.indices.map { i ->
+            "[$i:v]scale=$width:$height:force_original_aspect_ratio=decrease,pad=$width:$height:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=25,format=yuv420p[v$i]"
+        }
+        val joined = photoFiles.indices.joinToString("") { "[v$it]" }
+        val filter = (filterParts + "$joined" + "concat=n=${photoFiles.size}:v=1:a=0[outv]").joinToString(";")
+        val command = buildString {
+            append("-y ")
+            photoFiles.forEach { append("-loop 1 -t $duration -i '${it.absolutePath}' ") }
+            audioFile?.let { append("-stream_loop -1 -i '${it.absolutePath}' ") }
+            append("-filter_complex \"$filter\" -map '[outv]' ")
+            if (audioFile != null) {
+                append("-map ${photoFiles.size}:a:0 -c:a aac -b:a 128k -shortest ")
+            } else {
+                append("-an ")
+            }
+            append("-c:v mpeg4 -q:v 5 -r 25 -pix_fmt yuv420p -movflags +faststart '${destination.absolutePath}'")
+        }
+        busy = true
+        lastOutput = null
+        status = "در حال ساخت فیلم از ${photoFiles.size} عکس؛ ممکن است چند دقیقه طول بکشد..."
+        FFmpegKit.executeAsync(command) { session ->
+            scope.launch {
+                if (ReturnCode.isSuccess(session.returnCode) && destination.exists() && destination.length() > 0L) {
+                    lastOutput = destination
+                    status = "فیلم از عکس‌ها ساخته شد. اکنون می‌توانی آن را در گالری ذخیره کنی."
+                } else {
+                    status = "ساخت فیلم ناموفق بود. " + (session.failStackTrace ?: "فرمت یکی از فایل‌ها پشتیبانی نشد.")
+                }
+                busy = false
+            }
+        }
+    }
+
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("تدوین‌گر ویدئوی آفلاین", style = MaterialTheme.typography.titleLarge)
-        Text("انتخاب فایل، فشرده‌سازی، کوتاه‌کردن ویدئو و استخراج صدا با FFmpeg؛ بدون آپلود یا API.")
+        Text("استودیوی ساخت فیلم آفلاین", style = MaterialTheme.typography.titleLarge)
+        Text("ساخت کلیپ از عکس‌ها همراه موسیقی، به‌علاوه ابزارهای تدوین ویدئو؛ بدون اینترنت و API.")
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("۱. ساخت فیلم از عکس‌ها", style = MaterialTheme.typography.titleMedium)
+                Text("چند عکس انتخاب کن تا به ترتیب به یک فیلم MP4 تبدیل شوند. حداکثر ۳۰ عکس.")
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !busy,
+                    onClick = { photosPicker.launch(arrayOf("image/*")) }
+                ) { Text(if (photoFiles.isEmpty()) "انتخاب چند عکس" else "تغییر عکس‌ها (${photoFiles.size})") }
+                if (photoFiles.isNotEmpty()) Text("${photoFiles.size} عکس انتخاب شده است.")
+                Text("قالب فیلم")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = aspect == "عمودی ۹:۱۶", onClick = { aspect = "عمودی ۹:۱۶" }, label = { Text("عمودی ۹:۱۶") })
+                    FilterChip(selected = aspect == "افقی ۱۶:۹", onClick = { aspect = "افقی ۱۶:۹" }, label = { Text("افقی ۱۶:۹") })
+                }
+                OutlinedTextField(
+                    value = secondsPerPhoto,
+                    onValueChange = { secondsPerPhoto = it.filter(Char::isDigit).take(2) },
+                    label = { Text("مدت نمایش هر عکس (ثانیه)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                OutlinedButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !busy,
+                    onClick = { audioPicker.launch(arrayOf("audio/*")) }
+                ) { Text(if (audioFile == null) "انتخاب موسیقی پس‌زمینه (اختیاری)" else "تغییر موسیقی پس‌زمینه") }
+                audioFile?.let { Text("موسیقی انتخاب‌شده: ${it.name}") }
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = photoFiles.isNotEmpty() && !busy,
+                    onClick = { createSlideshow() }
+                ) { Text("ساخت فیلم آفلاین از عکس‌ها") }
+            }
+        }
+
+        Divider()
+        Text("۲. تدوین ویدئوی موجود", style = MaterialTheme.typography.titleMedium)
         Button(
             modifier = Modifier.fillMaxWidth(),
             enabled = !busy,
-            onClick = { picker.launch(arrayOf("video/*")) }
+            onClick = { videoPicker.launch(arrayOf("video/*")) }
         ) { Text(if (inputFile == null) "انتخاب ویدئو از گوشی" else "انتخاب ویدئوی دیگر") }
-
         inputFile?.let { Text("فایل انتخاب‌شده: " + it.name) }
-
         OutlinedTextField(
             value = trimSeconds,
             onValueChange = { trimSeconds = it.filter(Char::isDigit).take(4) },
@@ -99,7 +220,6 @@ fun OfflineVideoStudio() {
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
-
         Button(
             modifier = Modifier.fillMaxWidth(),
             enabled = inputFile != null && !busy,
@@ -110,7 +230,6 @@ fun OfflineVideoStudio() {
                 }
             }
         ) { Text("ساخت کلیپ کوتاه") }
-
         Button(
             modifier = Modifier.fillMaxWidth(),
             enabled = inputFile != null && !busy,
@@ -120,7 +239,6 @@ fun OfflineVideoStudio() {
                 }
             }
         ) { Text("کاهش حجم ویدئو") }
-
         Button(
             modifier = Modifier.fillMaxWidth(),
             enabled = inputFile != null && !busy,
@@ -133,7 +251,6 @@ fun OfflineVideoStudio() {
 
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         Text(status, style = MaterialTheme.typography.bodyMedium)
-
         lastOutput?.let { output ->
             Button(
                 modifier = Modifier.fillMaxWidth(),
@@ -141,9 +258,8 @@ fun OfflineVideoStudio() {
                 onClick = { saveMediaOutput(context, output) }
             ) { Text("ذخیره خروجی در گالری / پوشه فیلم‌ها") }
         }
-
         Text(
-            "این بخش تدوین آفلاین واقعی انجام می‌دهد. تولید ویدئوی مولد از متن با مدل‌های سنگین، قابلیت جداگانه‌ای است و روی Galaxy A53 محدودیت سخت‌افزاری جدی دارد.",
+            "این نسخه فیلم‌سازی آفلاین از عکس‌ها و موسیقی و تدوین فایل ویدئویی را انجام می‌دهد. تولید مولد ویدئو از یک جمله با هوش مصنوعی، قابلیت متفاوت و سنگین‌تری است و هنوز در این نسخه فعال نیست.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.secondary
         )
