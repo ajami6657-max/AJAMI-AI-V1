@@ -7,6 +7,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -39,21 +41,29 @@ fun OfflineAudioStudio() {
         }
     }
 
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
+
     DisposableEffect(tts) {
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {}
             override fun onDone(utteranceId: String?) {
-                busy = false
-                status = "فایل صوتی ساخته شد و در حافظه برنامه قرار گرفت."
+                mainHandler.post {
+                    busy = false
+                    status = "فایل صوتی ساخته شد و در حافظه برنامه قرار گرفت."
+                }
             }
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
-                busy = false
-                status = "ساخت فایل صوتی ناموفق بود؛ موتور گفتار یا صدای انتخابی را بررسی کن."
+                mainHandler.post {
+                    busy = false
+                    status = "ساخت فایل صوتی ناموفق بود؛ موتور گفتار یا صدای انتخابی را بررسی کن."
+                }
             }
             override fun onError(utteranceId: String?, errorCode: Int) {
-                busy = false
-                status = "خطای موتور گفتار (کد $errorCode)."
+                mainHandler.post {
+                    busy = false
+                    status = "خطای موتور گفتار (کد $errorCode)."
+                }
             }
         })
         onDispose {
