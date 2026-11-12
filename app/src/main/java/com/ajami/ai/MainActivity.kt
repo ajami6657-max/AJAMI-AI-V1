@@ -277,7 +277,7 @@ private fun AjamiApp() {
                                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                                         .setAllowedOverMetered(true)
                                         .setAllowedOverRoaming(false)
-                                        .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, modelFileName)
+                                        .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, selectedModelFileName)
                                     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                                     val id = manager.enqueue(request)
                                     context.getSharedPreferences("ajami_downloads", 0).edit()
