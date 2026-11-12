@@ -53,6 +53,7 @@ private fun AjamiApp() {
     var studioOpen by remember { mutableStateOf(false) }
     var imageStudioOpen by remember { mutableStateOf(false) }
     var videoStudioOpen by remember { mutableStateOf(false) }
+    var audioStudioOpen by remember { mutableStateOf(false) }
     var diagnosticsOpen by remember { mutableStateOf(false) }
     var assistantMode by remember { mutableStateOf("گفت‌وگوی عمومی") }
     var modeMenuExpanded by remember { mutableStateOf(false) }
@@ -156,12 +157,12 @@ private fun AjamiApp() {
             topBar = {
                 TopAppBar(
                     title = { Text("AJAMI-AI", color = gold) },
-                    actions = { Row { TextButton(onClick = { studioOpen = !studioOpen; imageStudioOpen = false; videoStudioOpen = false }) { Text(if (studioOpen) "چت" else "پوستر") }; TextButton(onClick = { imageStudioOpen = !imageStudioOpen; studioOpen = false; videoStudioOpen = false }) { Text(if (imageStudioOpen) "چت" else "تصویرساز") }; TextButton(onClick = { videoStudioOpen = !videoStudioOpen; studioOpen = false; imageStudioOpen = false }) { Text(if (videoStudioOpen) "چت" else "فیلم") }; TextButton(onClick = { diagnosticsOpen = !diagnosticsOpen; studioOpen = false; imageStudioOpen = false; videoStudioOpen = false }) { Text(if (diagnosticsOpen) "چت" else "سازگاری") } } },
+                    actions = { Row { TextButton(onClick = { studioOpen = !studioOpen; imageStudioOpen = false; videoStudioOpen = false }) { Text(if (studioOpen) "چت" else "پوستر") }; TextButton(onClick = { imageStudioOpen = !imageStudioOpen; studioOpen = false; videoStudioOpen = false }) { Text(if (imageStudioOpen) "چت" else "تصویرساز") }; TextButton(onClick = { videoStudioOpen = !videoStudioOpen; studioOpen = false; imageStudioOpen = false; audioStudioOpen = false; diagnosticsOpen = false }) { Text(if (videoStudioOpen) "چت" else "فیلم") }; TextButton(onClick = { audioStudioOpen = !audioStudioOpen; studioOpen = false; imageStudioOpen = false; videoStudioOpen = false; diagnosticsOpen = false }) { Text(if (audioStudioOpen) "چت" else "صدا") }; TextButton(onClick = { diagnosticsOpen = !diagnosticsOpen; studioOpen = false; imageStudioOpen = false; videoStudioOpen = false; audioStudioOpen = false }) { Text(if (diagnosticsOpen) "چت" else "سازگاری") } } },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0B2140))
                 )
             },
             bottomBar = {
-                if (!studioOpen && !imageStudioOpen && !videoStudioOpen) Row(
+                if (!studioOpen && !imageStudioOpen && !videoStudioOpen && !audioStudioOpen && !diagnosticsOpen) Row(
                     modifier = Modifier.fillMaxWidth().padding(10.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -217,6 +218,8 @@ private fun AjamiApp() {
             ) {
                 if (diagnosticsOpen) {
                     DeviceDiagnostics()
+                } else if (audioStudioOpen) {
+                    OfflineAudioStudio()
                 } else if (videoStudioOpen) {
                     OfflineVideoStudio(offlineModel)
                 } else if (imageStudioOpen) {
@@ -230,7 +233,7 @@ private fun AjamiApp() {
                         onExport = { exportPoster(context, posterTitle, posterSubtitle) }
                     )
                 }
-                if (!videoStudioOpen && !imageStudioOpen && !studioOpen && !diagnosticsOpen) {
+                if (!videoStudioOpen && !imageStudioOpen && !studioOpen && !diagnosticsOpen && !audioStudioOpen) {
                 Text("دستیار فارسی • نسخه 1.0.0", color = gold, style = MaterialTheme.typography.labelLarge)
                 Spacer(modifier = Modifier.height(8.dp))
                 Card(
