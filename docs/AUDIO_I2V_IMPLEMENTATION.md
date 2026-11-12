@@ -12,12 +12,13 @@ Official upstream: https://github.com/Stability-AI/stable-audio-3
 
 Why this candidate:
 - The upstream project publishes small-music and small-sfx models, each in the small 433M-parameter family.
-- The official optimized TFLite/LiteRT implementation supports ARM CPU inference through XNNPACK and does not require PyTorch at runtime.
+- The official optimized TFLite/LiteRT implementation supports ARM CPU inference through XNNPACK and does not require PyTorch at runtime. The official Android LiteRT SDK has a `CompiledModel` API and supports API 23+ in its current 2.3.2 release, so the app's API 26 minimum is compatible at the SDK level.
 - The small DiT rung is documented at about 0.5 GB (w8a8) or 1.8 GB (fp32), with about 0.8 GB DiT peak RAM; the T5Gemma text encoder is about 0.6 GB, plus the SAME-S codec. These are upstream host measurements, not A53 measurements.
 - Small music and SFX checkpoints support text-to-audio, and the documented small-family duration ceiling is 120 seconds. Do not promise this maximum on the A53 until measured.
-- The upstream repository code is MIT licensed. Model-weight licensing must be checked separately for the exact checkpoint and retained in the app's model manifest.
+- The upstream repository code is MIT licensed, but model weights are governed by the Stability AI Community License; the T5Gemma encoder has a separate Google license/notice. Include all three license/attribution notices with the optional model pack and verify the Community License terms for the intended distribution.
 
 ### Android port stages
+0. Use the standalone Google LiteRT Android runtime, not the Python `ai_edge_litert` package. Official Android guidance now lists LiteRT 2.3.2 as the current release with `CompiledModel` and minimum API 23; this app's minSdk 26 is compatible on paper. Pin `com.google.ai.edge.litert:litert:2.3.2` and test the exact AAR/ABI on the A53 before selecting a GPU delegate. The model graphs are documented as requiring LiteRT >= 2.2.0. This is API compatibility, not proof of A53 inference.
 1. Pin an upstream commit and download the exact small-music/small-sfx TFLite rung files, tokenizer/text encoder files, and SAME-S encoder/decoder files. Record URLs, SHA-256, sizes, and individual licenses.
 2. Inspect the exported LiteRT signatures and tensor contracts. Do not assume the desktop Python CLI is directly usable in Android.
 3. Implement a native Android LiteRT runner (Kotlin/JNI as appropriate) that reproduces prompt tokenization, text conditioning, sampler schedule, noise generation, and SAME-S decoding.
