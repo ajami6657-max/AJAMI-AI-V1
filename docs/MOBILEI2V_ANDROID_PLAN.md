@@ -79,3 +79,22 @@ Target device: Samsung Galaxy A53 / Exynos 1280 / 8 GB RAM (ARM64). This is not 
 ### Decision
 
 No verified, downloadable, truly generative offline image-to-video model/runtime has been found that is documented to run on the Exynos 1280 / 8 GB A53. Do not add a nonfunctional video model button or imply Qualcomm benchmark results apply to this phone. Continue searching for a CPU/Vulkan/ARM64 implementation with published model weights and a reproducible inference path; otherwise report the hardware/model limitation honestly and keep the existing slideshow/video-editing tools available.
+
+
+## Rapid follow-up review (2026-11-12, 11:53 Asia/Tehran)
+
+### MobileWan paper and implementation claims
+
+- The MobileWan paper (arXiv:2607.06173, July 2026) describes a 5B-parameter Wan2.2-derived model and reports 5-second 480x832, 16 FPS generation in 20 seconds on a commercial mobile device. This is a research result, not evidence of compatibility with Exynos 1280 / Mali.
+- The public project material currently surfaced is Qualcomm AI Research-oriented and does not establish a complete, downloadable ARM64 CPU/Vulkan/NNAPI pipeline for this target. Do not port it based on the paper abstract or headline benchmark alone.
+- The paper's reported deployment must not be conflated with a generic Android APK or an Exynos build. Require exact device/chip, runtime, weights, license, memory, and reproducible inference evidence before accepting it.
+
+### Third-party MobileI2VConsole audit
+
+- The third-party repository advertises fully local Android inference through ONNX Runtime, but it is not the official HUST release and its implementation is not accepted as a reference implementation.
+- Earlier source inspection found material mismatches against the official MobileI2V path: raw UTF-8 prompt bytes rather than the official Qwen tokenizer; inconsistent text-embedding widths (official config caption width 896 versus the export script's Qwen output width 1024); altered temporal latent construction and reference-frame conditioning; and an abbreviated two-step sampler with constants not shown to match official FlowEuler.
+- Therefore its README's 720p / 17-frame claims do not constitute parity evidence. Do not copy its inference pipeline into AJAMI-AI without a fixed-input PyTorch-vs-ONNX parity test and an actual target-device run.
+
+### Immediate engineering decision
+
+No newly reviewed source provides a verified, downloadable, text-conditioned, fully offline I2V pipeline proven on Exynos 1280 / Mali. Keep the experimental work isolated. Next work must be a reproducible reference inference and export/parity harness, not a UI button or placeholder engine. A successful CI build remains only a compilation check.
