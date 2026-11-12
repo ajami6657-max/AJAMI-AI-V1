@@ -25,6 +25,7 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Build offline image engine for Android ARM64
+        timeout-minutes: 90
         run: |
           export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
@@ -42,7 +43,7 @@ jobs:
             -DSD_OPENCL=OFF \
             -DSD_VULKAN=OFF \
             -DCMAKE_BUILD_TYPE=Release
-          cmake --build /tmp/stable-diffusion.cpp/build-android --config Release --target sd-cli -j2
+          cmake --build /tmp/stable-diffusion.cpp/build-android --config Release --target sd-cli -j4
           mkdir -p app/src/main/jniLibs/arm64-v8a
           BIN="$(find /tmp/stable-diffusion.cpp/build-android -type f -name sd-cli -perm -111 | head -n 1)"
           test -n "$BIN"
