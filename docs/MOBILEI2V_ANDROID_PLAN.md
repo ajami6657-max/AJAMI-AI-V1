@@ -36,3 +36,9 @@ The upstream `distillation` branch contains training code and a distillation tra
 ## Release gate
 
 A CI APK build proves compilation only. The feature is complete only after model parity tests pass and the installed APK generates and plays a real 17-frame clip on the target phone without internet after model acquisition. Longer clips, prompt adherence, and performance claims require separate measurements.
+
+## Critical prompt-conditioning finding (source inspection)
+
+The official Mobiledit implementation builds its transformer stack from seven SanaBlock_cross blocks, one SanaBlock_vanila block, seven more SanaBlock_cross blocks, and one more SanaBlock_vanila block. In the currently published mobiledit.py, both block implementations comment out their cross-attention module and the residual call that would apply it. The text encoder output y is still prepared and passed to each block, but these block forwards do not consume it. Therefore, do not promise motion-prompt control from this checkpoint/code path. This is a release blocker for a user-facing prompt-controlled image-to-video feature until a matching checkpoint/model variant with verified text conditioning is identified or the intended conditioning path is established from the official inference pipeline.
+
+This finding does not prove the reference-image conditioning is absent: the official inference pipeline also constructs the video latent and conditioning mask outside the denoiser. That path must be traced separately before implementing an exporter. The export must preserve the exact official inference semantics rather than inventing a new prompt or image-conditioning interface.
