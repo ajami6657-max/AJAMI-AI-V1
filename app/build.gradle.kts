@@ -22,6 +22,14 @@ android {
         jvmTarget = "17"
     }
     buildFeatures { compose = true }
+    ndkVersion = "27.2.12479018"
+    defaultConfig {
+        ndk { abiFilters += "arm64-v8a" }
+        externalNativeBuild { cmake { cppFlags += "-std=c++17" } }
+    }
+    externalNativeBuild {
+        cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.31.6" }
+    }
     packaging {
         jniLibs {
             pickFirsts += "**/libc++_shared.so"
