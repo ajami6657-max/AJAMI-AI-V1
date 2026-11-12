@@ -175,7 +175,7 @@ private fun AjamiApp() {
                 modifier = Modifier.fillMaxSize().padding(innerPadding).padding(12.dp)
             ) {
                 if (videoStudioOpen) {
-                    OfflineVideoStudio()
+                    OfflineVideoStudio(offlineModel)
                 } else if (imageStudioOpen) {
                     AIImageStudio(offlineModel)
                 } else if (studioOpen) {
