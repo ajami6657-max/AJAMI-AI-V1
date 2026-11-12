@@ -46,3 +46,16 @@ This finding does not prove the reference-image conditioning is absent: the offi
 ## Inference sampler verification
 
 The official FlowEuler sampler concatenates unconditional and conditional text embeddings for classifier-free guidance, then calls Mobiledit with both. It also re-injects the reference-image VAE latent into the first temporal latent slice after every Euler update. The model forward accepts guide_image and y, but the published block forward path does not apply cross-attention to y. Therefore the reference image is structurally preserved through the sampler, while prompt-based motion steering is not demonstrated by this code path; the CFG subtraction may be ineffective if the two branches differ only in y. A valid Android port must reproduce the first-frame latent reinjection, conditional mask, timestep/flow-score embeddings, and exact sampler schedule. A denoiser-only ONNX export is not a complete engine.
+
+
+## Follow-up verification: upstream distillation branch
+
+Inspected upstream branch `distillation` at commit `884f40a9c58338ad36299b9a4ef625392c2bd994` on 2026-11-12:
+
+- Its README describes a training workflow, not a released distilled inference package. The script `train_scripts/train_i2v_distill.sh` launches training and expects teacher/DMD checkpoint paths; it does not fetch or provide a ready-to-run mobile checkpoint.
+- The branch config `MobileI2V_300M_img512_3.yaml` still points `load_from`, `teacher_model_path`, and `dmd_model_path` to `./model/hybrid_371.pth`; it also expects local video-VAE and Qwen2-0.5B directories. This is a training setup, not a self-contained Android model pack.
+- The distillation branch's `mobiledit.py` still builds the active transformer stack from seven `SanaBlock_cross` blocks, one `SanaBlock_vanila`, seven more `SanaBlock_cross`, and one more `SanaBlock_vanila`.
+- In that same file, `SanaBlock_cross.forward` comments out `self.cross_attn` and its residual call. `SanaBlock_vanila` also has no active text cross-attention. Although the separate `SanaBlock` class contains an active cross-attention call, the active Mobiledit constructor does not instantiate that class.
+- Therefore the distillation branch does not resolve the prompt-conditioning blocker, and no Android export or device integration should be based on assuming its text embeddings steer motion.
+
+Decision: keep the feature isolated and do not add a fake/partial MobileI2V runtime to the stable APK. Next viable research step is to locate a checkpoint plus architecture whose actual forward path consumes text conditioning, then establish a reproducible PyTorch reference test before export.
