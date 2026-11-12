@@ -98,3 +98,37 @@ No verified, downloadable, truly generative offline image-to-video model/runtime
 ### Immediate engineering decision
 
 No newly reviewed source provides a verified, downloadable, text-conditioned, fully offline I2V pipeline proven on Exynos 1280 / Mali. Keep the experimental work isolated. Next work must be a reproducible reference inference and export/parity harness, not a UI button or placeholder engine. A successful CI build remains only a compilation check.
+
+## Further Android runtime candidate audit (2026-11-12)
+
+### Saient / Quartz + Wan2.1
+
+Source inspected: https://github.com/SaientAI/saient/blob/main/docs/VIDEO_PIPELINE.md
+
+- This is stronger evidence of a genuine offline Android video pipeline than a UI-only demo: the project documents a live airplane-mode run on Samsung SM-S921B (Galaxy S24), a native stable-diffusion.cpp fork, a foreground service, progress/cancel, and a Vulkan diffusion backend.
+- However, the documented engine is Wan2.1 T2V 1.3B, not image-to-video. It cannot be treated as the requested I2V engine without a separate image-conditioning implementation and verified model path.
+- The pinned model pack is 4.73 GB: Q4_K diffusion transformer 816 MB, Q4_K_M UMT5-XXL encoder 3.66 GB, FP16 VAE 254 MB. The project explicitly unloads the chat model before video generation, uses CPU for text encoder and VAE, Vulkan for diffusion, disk-backed parameters and VAE tiling.
+- The live device proof is for Galaxy S24, not Galaxy A53. Its successful Vulkan execution does not prove Mali/Exynos compatibility. No A53 benchmark, peak RAM, thermal, or stability result was found.
+- Engineering value: inspect its pinned stable-diffusion.cpp Vulkan backend and memory management as a possible reference for a future Mali experiment, but do not copy its T2V pipeline into the I2V screen or claim A53 support. First verify the exact Vulkan backend supports the A53 Mali driver and measure memory with a tiny smoke test.
+
+### Mobile Video Diffusion (MobileVD)
+
+Source inspected: https://openaccess.thecvf.com/content/ICCV2025/papers/Yahia_Mobile_Video_Diffusion_ICCV_2025_paper.pdf
+
+- The paper is genuinely image-to-video: it starts from Stable Video Diffusion, prunes/optimizes its spatio-temporal UNet, and uses adversarial finetuning for one denoising step.
+- The headline 1.7 s result is specifically on Xiaomi 14 Pro / Snapdragon 8 Gen 3 / Hexagon. The paper's method section confirms phone latency measurements use that platform.
+- The paper's table also reports OOM for several baselines at 1024x576 and does not establish any A53/Mali run.
+- A public reproducible Android implementation, downloadable model checkpoint, exact model-pack size, and Mali-compatible runtime were not verified in this review. Therefore this is a research lead, not an integrable backend yet.
+
+### LocalMotion
+
+Source inspected: https://github.com/Tiggy-Chan/LocalMotion
+
+- The repository describes itself as a prototype for Snapdragon 8 Gen 3.
+- It explicitly says QNN SDK assets and model weights are not shipped and its native inference core is gated by Qualcomm SDK-bound code not committed.
+- The present fallback is image import/crop, lightweight stylization, progress and MP4 encoding; the first realistic NPU milestone is SD1.5 still-image generation, not I2V.
+- Rejected as an A53 drop-in; no verified I2V runtime or Mali backend.
+
+### Current decision and next engineering step
+
+No candidate in this review meets all four required gates for AJAMI-AI: genuine I2V conditioning, downloadable licensed weights, reproducible ARM64/Mali runtime, and verified execution on Exynos 1280. Saient is a useful Vulkan/mobile-memory reference but is T2V on a different phone; MobileVD is true I2V research but its reported device is Snapdragon and a reproducible A53 package was not found. Keep both as research leads only. Next implement a small Vulkan capability/driver smoke test on the actual A53 before investing in a multi-gigabyte video model pack. Do not change the stable main branch.
