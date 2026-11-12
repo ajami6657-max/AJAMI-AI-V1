@@ -133,7 +133,7 @@ fun OfflineVideoStudio() {
             "[$i:v]scale=$width:$height:force_original_aspect_ratio=decrease,pad=$width:$height:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=25,format=yuv420p[v$i]"
         }
         val joined = photoFiles.indices.joinToString("") { "[v$it]" }
-        val filter = (filterParts + "$joined" + "concat=n=${photoFiles.size}:v=1:a=0[outv]").joinToString(";")
+        val filter = (filterParts + (joined + "concat=n=${photoFiles.size}:v=1:a=0[outv]")).joinToString(";")
         val command = buildString {
             append("-y ")
             photoFiles.forEach { append("-loop 1 -t $duration -i '${it.absolutePath}' ") }
