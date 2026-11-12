@@ -195,7 +195,7 @@ private fun AjamiApp() {
                                                 "آموزش و حل مسئله" -> "مانند معلم صبور عمل کن؛ مسئله را مرحله‌به‌مرحله توضیح بده، مثال ساده بزن و در صورت نامشخص بودن داده‌ها فرضیات را روشن کن."
                                                 else -> "به‌عنوان دستیار عمومی فارسی پاسخ دقیق، مفید و روشن بده."
                                             }
-                                            Llama.complete(loaded, prompt = transcript, systemPrompt = "تو دستیار هوش مصنوعی فارسی AJAMI-AI هستی. $taskInstruction اگر پاسخ را نمی‌دانی، صادقانه بگو. بدون اینترنت و API کار می‌کنی.", maxTokens = 384).text
+                                            Llama.complete(loaded, prompt = transcript, systemPrompt = "تو دستیار هوش مصنوعی فارسی AJAMI-AI هستی. $taskInstruction ${if (assistantMode == "برنامه‌نویسی" || assistantMode == "آموزش و حل مسئله") "/think" else "/no_think"} اگر پاسخ را نمی‌دانی، صادقانه بگو. بدون اینترنت و API کار می‌کنی.", maxTokens = 512).text
                                         }.getOrElse { "خطا در پاسخ آفلاین: ${it.localizedMessage ?: "خطای ناشناخته"}" }
                                     }
                                     messages.add(ChatMessage("assistant", answer))
