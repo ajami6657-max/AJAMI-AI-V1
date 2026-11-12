@@ -4,10 +4,17 @@ on:
   workflow_dispatch:
   push:
     branches: [ main, 'feature/mobilei2v-offline-engine', 'feature/audio-i2v-next' ]
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'build.gradle*'
+      - 'settings.gradle*'
+      - 'gradle.properties'
+      - '.github/workflows/build.yml'
 
 concurrency:
   group: ajami-ai-apk-build
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
