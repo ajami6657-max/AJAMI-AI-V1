@@ -184,7 +184,7 @@ private fun AjamiApp() {
                                 scope.launch {
                                     val answer = withContext(Dispatchers.Default) {
                                         runCatching {
-                                            val transcript = history.takeLast(12).joinToString("\\n") { m ->
+                                            val transcript = history.takeLast(12).joinToString("\n") { m ->
                                                 (if (m.role == "user") "کاربر" else "دستیار") + ": " + m.text
                                             }
                                             val taskInstruction = when (assistantMode) {
@@ -260,9 +260,9 @@ private fun AjamiApp() {
                                         val memory = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
                                         val memoryInfo = ActivityManager.MemoryInfo()
                                         memory.getMemoryInfo(memoryInfo)
-                                        val requiredFreeMemory = 2_800_000_000L
+                                        val requiredFreeMemory = 3_000_000_000L
                                         if (memoryInfo.lowMemory || memoryInfo.availMem < requiredFreeMemory) {
-                                            error("برای بارگذاری Qwen3-4B حدود ۲٫۸ گیگابایت RAM آزاد لازم است. برنامه‌های پس‌زمینه را ببند و دوباره تلاش کن.")
+                                            error("برای بارگذاری Qwen3-4B حدود ۳ گیگابایت RAM آزاد لازم است. برنامه‌های پس‌زمینه را ببند و دوباره تلاش کن.")
                                         }
                                         val loadPath = selectedModelFile.absolutePath
                                         val contextSize = 2048
