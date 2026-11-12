@@ -53,6 +53,7 @@ private fun AjamiApp() {
     var studioOpen by remember { mutableStateOf(false) }
     var imageStudioOpen by remember { mutableStateOf(false) }
     var videoStudioOpen by remember { mutableStateOf(false) }
+    var diagnosticsOpen by remember { mutableStateOf(false) }
     var assistantMode by remember { mutableStateOf("گفت‌وگوی عمومی") }
     var modeMenuExpanded by remember { mutableStateOf(false) }
     var posterTitle by remember { mutableStateOf("عنوان پوستر شما") }
@@ -115,7 +116,7 @@ private fun AjamiApp() {
             topBar = {
                 TopAppBar(
                     title = { Text("AJAMI-AI", color = gold) },
-                    actions = { Row { TextButton(onClick = { studioOpen = !studioOpen; imageStudioOpen = false; videoStudioOpen = false }) { Text(if (studioOpen) "چت" else "پوستر") }; TextButton(onClick = { imageStudioOpen = !imageStudioOpen; studioOpen = false; videoStudioOpen = false }) { Text(if (imageStudioOpen) "چت" else "تصویرساز") }; TextButton(onClick = { videoStudioOpen = !videoStudioOpen; studioOpen = false; imageStudioOpen = false }) { Text(if (videoStudioOpen) "چت" else "فیلم") } } },
+                    actions = { Row { TextButton(onClick = { studioOpen = !studioOpen; imageStudioOpen = false; videoStudioOpen = false }) { Text(if (studioOpen) "چت" else "پوستر") }; TextButton(onClick = { imageStudioOpen = !imageStudioOpen; studioOpen = false; videoStudioOpen = false }) { Text(if (imageStudioOpen) "چت" else "تصویرساز") }; TextButton(onClick = { videoStudioOpen = !videoStudioOpen; studioOpen = false; imageStudioOpen = false }) { Text(if (videoStudioOpen) "چت" else "فیلم") }; TextButton(onClick = { diagnosticsOpen = !diagnosticsOpen; studioOpen = false; imageStudioOpen = false; videoStudioOpen = false }) { Text(if (diagnosticsOpen) "چت" else "سازگاری") } } },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0B2140))
                 )
             },
@@ -174,7 +175,9 @@ private fun AjamiApp() {
             Column(
                 modifier = Modifier.fillMaxSize().padding(innerPadding).padding(12.dp)
             ) {
-                if (videoStudioOpen) {
+                if (diagnosticsOpen) {
+                    DeviceDiagnostics()
+                } else if (videoStudioOpen) {
                     OfflineVideoStudio(offlineModel)
                 } else if (imageStudioOpen) {
                     AIImageStudio(offlineModel)
@@ -187,7 +190,7 @@ private fun AjamiApp() {
                         onExport = { exportPoster(context, posterTitle, posterSubtitle) }
                     )
                 }
-                if (!videoStudioOpen && !imageStudioOpen && !studioOpen) {
+                if (!videoStudioOpen && !imageStudioOpen && !studioOpen && !diagnosticsOpen) {
                 Text("دستیار فارسی • نسخه 1.0.0", color = gold, style = MaterialTheme.typography.labelLarge)
                 Spacer(modifier = Modifier.height(8.dp))
                 Card(
