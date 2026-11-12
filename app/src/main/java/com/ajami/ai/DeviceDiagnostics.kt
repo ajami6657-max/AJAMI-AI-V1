@@ -20,7 +20,7 @@ fun DeviceDiagnostics() {
     val features = pm.systemAvailableFeatures.orEmpty()
     val vulkanLevel = features.firstOrNull { it.name == PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL }?.version ?: 0
     val vulkanVersion = features.firstOrNull { it.name == PackageManager.FEATURE_VULKAN_HARDWARE_VERSION }?.version ?: 0
-    val gles = pm.systemAvailableFeatures.orEmpty().firstOrNull { it.name == PackageManager.FEATURE_OPENGLES }?.version ?: 0
+    val gles = (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).deviceConfigurationInfo.reqGlEsVersion
     val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
     val memory = am.memoryClass
     val largeMemory = am.largeMemoryClass
