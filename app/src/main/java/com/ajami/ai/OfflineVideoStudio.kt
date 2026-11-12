@@ -19,13 +19,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.arthenica.ffmpegkit.ReturnCode
+import dev.ffmpegkit.llama.LlamaModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
 @Composable
-fun OfflineVideoStudio() {
+fun OfflineVideoStudio(languageModel: LlamaModel?) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var inputFile by remember { mutableStateOf<File?>(null) }
@@ -167,6 +168,7 @@ fun OfflineVideoStudio() {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("استودیوی ساخت فیلم آفلاین", style = MaterialTheme.typography.titleLarge)
+        OfflineFilmMaker(languageModel)
         Text("ساخت کلیپ از عکس‌ها همراه موسیقی، به‌علاوه ابزارهای تدوین ویدئو؛ بدون اینترنت و API.")
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
