@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import kotlinx.coroutines.launch
 
 @Composable
 fun DeviceDiagnostics() {
