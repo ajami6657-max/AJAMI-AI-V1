@@ -65,13 +65,21 @@ private fun AjamiApp() {
     var offlineModel by remember { mutableStateOf<LlamaModel?>(null) }
     var offlineLoading by remember { mutableStateOf(false) }
     var offlineMode by remember { mutableStateOf(false) }
+    var selectedModel by remember { mutableStateOf("0.5B") }
     val modelFileName = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
+    val model15FileName = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
     val modelFile = remember(context) {
         File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), modelFileName)
     }
+    val model15File = remember(context) {
+        File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), model15FileName)
+    }
+    val selectedModelFile = if (selectedModel == "1.5B") model15File else modelFile
+    val selectedModelFileName = if (selectedModel == "1.5B") model15FileName else modelFileName
     LaunchedEffect(Unit) {
-        if (modelFile.exists() && modelFile.length() > 400_000_000L) {
-            modelStatus = "مدل دانلود شده است؛ برای شروع چت آفلاین، آن را بارگذاری کن."
+        if ((modelFile.exists() && modelFile.length() > 400_000_000L) ||
+            (model15File.exists() && model15File.length() > 900_000_000L)) {
+            modelStatus = "حداقل یک مدل دانلود شده است؛ مدل موردنظر را انتخاب و بارگذاری کن."
         }
     }
     DisposableEffect(context) {
@@ -81,14 +89,16 @@ private fun AjamiApp() {
                     val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
                     val prefsDownload = context.getSharedPreferences("ajami_downloads", 0)
                     if (id == prefsDownload.getLong("model_download_id", -2L)) {
+                        val downloadedName = prefsDownload.getString("model_download_filename", modelFileName) ?: modelFileName
+                        val downloadedFile = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), downloadedName)
                         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                         val query = DownloadManager.Query().setFilterById(id)
                         manager.query(query).use { cursor ->
                             if (cursor.moveToFirst()) {
                                 val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
                                 val status = if (statusIndex >= 0) cursor.getInt(statusIndex) else -1
-                                if (status == DownloadManager.STATUS_SUCCESSFUL && modelFile.exists()) {
-                                    modelStatus = "مدل با موفقیت دانلود شد؛ دکمه بارگذاری را بزن تا چت آفلاین آماده شود."
+                                if (status == DownloadManager.STATUS_SUCCESSFUL && downloadedFile.exists()) {
+                                    modelStatus = "مدل $downloadedName با موفقیت دانلود شد؛ آن را انتخاب و بارگذاری کن."
                                 } else {
                                     val reasonIndex = cursor.getColumnIndex(DownloadManager.COLUMN_REASON)
                                     val reason = if (reasonIndex >= 0) cursor.getInt(reasonIndex) else -1
@@ -199,18 +209,24 @@ private fun AjamiApp() {
                 ) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("مدل هوش مصنوعی آفلاین", color = gold, style = MaterialTheme.typography.titleMedium)
-                        Text("Qwen 2.5 • 0.5B • Q4_K_M • حدود ۴۹۱ مگابایت", color = Color.White)
+                        Text("دو مدل زبانی کاملاً محلی؛ مدل 1.5B پاسخ‌های قوی‌تری می‌دهد اما کندتر و سنگین‌تر است.", color = Color.White)
                         Text(modelStatus, color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
-                        if (modelFile.exists() && offlineModel == null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(selected = selectedModel == "0.5B", onClick = { if (offlineModel == null) selectedModel = "0.5B" }, label = { Text("سبک 0.5B") })
+                            FilterChip(selected = selectedModel == "1.5B", onClick = { if (offlineModel == null) selectedModel = "1.5B" }, label = { Text("قوی‌تر 1.5B") })
+                        }
+                        Text(if (selectedModel == "1.5B") "Qwen2.5 1.5B • Q4_K_M • حدود ۱.۱۲ گیگابایت" else "Qwen2.5 0.5B • Q4_K_M • حدود ۴۹۱ مگابایت", color = Color.White)
+                        if (selectedModelFile.exists() && offlineModel == null) {
                             Button(enabled = !offlineLoading, onClick = {
                                 offlineLoading = true
                                 modelStatus = "در حال بارگذاری مدل در حافظه گوشی..."
                                 scope.launch {
                                     try {
-                                        if (!modelFile.exists() || modelFile.length() < 400_000_000L) {
-                                            error("فایل مدل ناقص است یا دانلود نشده؛ مدل را دوباره دانلود کن.")
+                                        val minimumSize = if (selectedModel == "1.5B") 900_000_000L else 400_000_000L
+                                        if (!selectedModelFile.exists() || selectedModelFile.length() < minimumSize) {
+                                            error("فایل مدل انتخاب‌شده ناقص است یا دانلود نشده؛ آن را دوباره دانلود کن.")
                                         }
-                                        val magic = modelFile.inputStream().use { stream ->
+                                        val magic = selectedModelFile.inputStream().use { stream ->
                                             ByteArray(4).also { if (stream.read(it) != 4) error("خواندن فایل مدل ممکن نیست.") }
                                         }
                                         if (!magic.contentEquals("GGUF".toByteArray(Charsets.US_ASCII))) {
@@ -219,13 +235,16 @@ private fun AjamiApp() {
                                         val memory = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
                                         val memoryInfo = ActivityManager.MemoryInfo()
                                         memory.getMemoryInfo(memoryInfo)
-                                        if (memoryInfo.lowMemory || memoryInfo.availMem < 800_000_000L) {
-                                            error("حافظه آزاد گوشی برای بارگذاری مدل کافی نیست. برنامه‌های دیگر را ببند و دوباره تلاش کن.")
+                                        val requiredFreeMemory = if (selectedModel == "1.5B") 1_600_000_000L else 800_000_000L
+                                        if (memoryInfo.lowMemory || memoryInfo.availMem < requiredFreeMemory) {
+                                            error("حافظه آزاد برای مدل $selectedModel کافی نیست. برنامه‌های دیگر را ببند یا مدل سبک 0.5B را انتخاب کن.")
                                         }
+                                        val loadPath = selectedModelFile.absolutePath
+                                        val contextSize = if (selectedModel == "1.5B") 2048 else 1024
                                         val loaded = withContext(Dispatchers.Default) {
                                             Llama.loadModel(
-                                                modelFile.absolutePath,
-                                                LlamaConfig(contextSize = 1024, threads = 2, gpuLayers = 0)
+                                                loadPath,
+                                                LlamaConfig(contextSize = contextSize, threads = 2, gpuLayers = 0)
                                             )
                                         }
                                         offlineModel = loaded
@@ -245,14 +264,16 @@ private fun AjamiApp() {
                             }
                         }
                         Button(
-                            enabled = !modelDownloading && !modelFile.exists(),
+                            enabled = !modelDownloading && !selectedModelFile.exists(),
                             onClick = {
                                 try {
-                                    val request = DownloadManager.Request(
-                                        Uri.parse("https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf?download=true")
-                                    )
+                                    val modelUrl = if (selectedModel == "1.5B")
+                                        "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf?download=true"
+                                    else
+                                        "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf?download=true"
+                                    val request = DownloadManager.Request(Uri.parse(modelUrl))
                                         .setTitle("دانلود مدل آفلاین AJAMI-AI")
-                                        .setDescription("مدل زبانی Qwen 2.5 کوچک • حدود ۴۹۱ مگابایت")
+                                        .setDescription("دانلود مدل Qwen2.5 $selectedModel به‌صورت محلی")
                                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                                         .setAllowedOverMetered(true)
                                         .setAllowedOverRoaming(false)
@@ -260,14 +281,16 @@ private fun AjamiApp() {
                                     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                                     val id = manager.enqueue(request)
                                     context.getSharedPreferences("ajami_downloads", 0).edit()
-                                        .putLong("model_download_id", id).apply()
+                                        .putLong("model_download_id", id)
+                                        .putString("model_download_filename", selectedModelFileName)
+                                        .apply()
                                     modelDownloading = true
                                     modelStatus = "دانلود آغاز شد؛ می‌توانی از اعلان‌های گوشی پیشرفت آن را ببینی."
                                 } catch (e: Exception) {
                                     modelStatus = "شروع دانلود ممکن نشد: ${e.localizedMessage ?: "خطای ناشناخته"}"
                                 }
                             }
-                        ) { Text(if (modelDownloading) "در حال دانلود..." else if (modelFile.exists()) "مدل موجود است" else "دانلود مدل آفلاین") }
+                        ) { Text(if (modelDownloading) "در حال دانلود..." else if (selectedModelFile.exists()) "مدل انتخاب‌شده موجود است" else "دانلود مدل $selectedModel آفلاین") }
                     }
                 }
                 Row(
