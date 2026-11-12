@@ -66,17 +66,27 @@ private fun AjamiApp() {
     var offlineModel by remember { mutableStateOf<LlamaModel?>(null) }
     var offlineLoading by remember { mutableStateOf(false) }
     var offlineMode by remember { mutableStateOf(false) }
-    var selectedModel by remember { mutableStateOf("4B") }
-    val modelFileName = "Qwen3-4B-Q4_K_M.gguf"
-    val modelFile = remember(context) {
+    var selectedModel by remember {
+        mutableStateOf(context.getSharedPreferences("ajami_chat_local", Context.MODE_PRIVATE).getString("selected_model", "4B") ?: "4B")
+    }
+    val modelFileName = if (selectedModel == "8B") "Qwen3-8B-Q4_K_M.gguf" else "Qwen3-4B-Q4_K_M.gguf"
+    val modelLabel = if (selectedModel == "8B") "Qwen3-8B" else "Qwen3-4B"
+    val minimumModelSize = if (selectedModel == "8B") 4_800_000_000L else 2_300_000_000L
+    val modelUrl = if (selectedModel == "8B") {
+        "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf?download=true"
+    } else {
+        "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf?download=true"
+    }
+    val modelFile = remember(context, selectedModel) {
         File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), modelFileName)
     }
     val selectedModelFile = modelFile
     val selectedModelFileName = modelFileName
-    LaunchedEffect(Unit) {
-        selectedModel = "4B"
-        if (modelFile.exists() && modelFile.length() > 2_300_000_000L) {
-            modelStatus = "مدل قدرتمند Qwen3-4B روی گوشی موجود است؛ آن را بارگذاری کن."
+    LaunchedEffect(selectedModel) {
+        modelStatus = if (modelFile.exists() && modelFile.length() >= minimumModelSize) {
+            "$modelLabel روی گوشی موجود است؛ آن را بارگذاری کن."
+        } else {
+            "برای استفاده از $modelLabel ابتدا مدل را دانلود کن."
         }
     }
     DisposableEffect(context) {
@@ -117,7 +127,6 @@ private fun AjamiApp() {
     val scope = rememberCoroutineScope()
     val chatPrefs = remember(context) { context.getSharedPreferences("ajami_chat_local", Context.MODE_PRIVATE) }
     LaunchedEffect(Unit) {
-        selectedModel = "4B"
         val saved = chatPrefs.getString("messages_json", null)
         if (!saved.isNullOrBlank()) {
             runCatching {
@@ -238,17 +247,31 @@ private fun AjamiApp() {
                 ) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("مدل هوش مصنوعی آفلاین", color = gold, style = MaterialTheme.typography.titleMedium)
-                        Text("مدل زبانی قدرتمند Qwen3 با ۴ میلیارد پارامتر؛ کاملاً محلی و بدون API یا اینترنت هنگام گفتگو.", color = Color.White)
+                        Text("مدل زبانی Qwen3؛ انتخاب بین نسخهٔ سبک‌تر و نسخهٔ قوی‌تر ۸ میلیارد پارامتری.", color = Color.White)
+                        var modelMenuExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            OutlinedButton(
+                                enabled = offlineModel == null && !offlineLoading && !modelDownloading,
+                                onClick = { modelMenuExpanded = true }
+                            ) { Text(if (selectedModel == "8B") "مدل قوی‌تر: Qwen3-8B" else "مدل سبک‌تر: Qwen3-4B") }
+                            DropdownMenu(expanded = modelMenuExpanded, onDismissRequest = { modelMenuExpanded = false }) {
+                                DropdownMenuItem(text = { Text("Qwen3-8B • قوی‌تر • حدود ۵ گیگابایت") }, onClick = {
+                                    selectedModel = "8B"; modelMenuExpanded = false
+                                })
+                                DropdownMenuItem(text = { Text("Qwen3-4B • سبک‌تر • حدود ۲٫۵ گیگابایت") }, onClick = {
+                                    selectedModel = "4B"; modelMenuExpanded = false
+                                })
+                            }
+                        }
                         Text(modelStatus, color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
-                        Text("Qwen3-4B • Q4_K_M • حدود ۲٫۵ گیگابایت • پنجره زمینه ۲۰۴۸ توکن", color = Color.White)
+                        Text(if (selectedModel == "8B") "Qwen3-8B • Q4_K_M • حدود ۵٫۰۳ گیگابایت • پنجره زمینه ۲۰۴۸ توکن" else "Qwen3-4B • Q4_K_M • حدود ۲٫۵ گیگابایت • پنجره زمینه ۲۰۴۸ توکن", color = Color.White)
                         if (selectedModelFile.exists() && offlineModel == null) {
                             Button(enabled = !offlineLoading, onClick = {
                                 offlineLoading = true
                                 modelStatus = "در حال بارگذاری مدل در حافظه گوشی..."
                                 scope.launch {
                                     try {
-                                        val minimumSize = 2_300_000_000L
-                                        if (!selectedModelFile.exists() || selectedModelFile.length() < minimumSize) {
+                                        if (!selectedModelFile.exists() || selectedModelFile.length() < minimumModelSize) {
                                             error("فایل مدل انتخاب‌شده ناقص است یا دانلود نشده؛ آن را دوباره دانلود کن.")
                                         }
                                         val magic = selectedModelFile.inputStream().use { stream ->
@@ -260,9 +283,9 @@ private fun AjamiApp() {
                                         val memory = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
                                         val memoryInfo = ActivityManager.MemoryInfo()
                                         memory.getMemoryInfo(memoryInfo)
-                                        val requiredFreeMemory = 3_000_000_000L
+                                        val requiredFreeMemory = if (selectedModel == "8B") 5_500_000_000L else 3_000_000_000L
                                         if (memoryInfo.lowMemory || memoryInfo.availMem < requiredFreeMemory) {
-                                            error("برای بارگذاری Qwen3-4B حدود ۳ گیگابایت RAM آزاد لازم است. برنامه‌های پس‌زمینه را ببند و دوباره تلاش کن.")
+                                            error("برای بارگذاری $modelLabel حدود " + (if (selectedModel == "8B") "۵٫۵" else "۳") + " گیگابایت RAM آزاد لازم است. نسخهٔ ۸B روی گوشی‌های ۸ گیگابایتی ممکن است به‌دلیل حافظهٔ سیستم بارگذاری نشود؛ برنامه‌های پس‌زمینه را ببند یا مدل ۴B را انتخاب کن.")
                                         }
                                         val loadPath = selectedModelFile.absolutePath
                                         val contextSize = 2048
@@ -292,7 +315,6 @@ private fun AjamiApp() {
                             enabled = !modelDownloading && !selectedModelFile.exists(),
                             onClick = {
                                 try {
-                                    val modelUrl = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf?download=true"
                                     val request = DownloadManager.Request(Uri.parse(modelUrl))
                                         .setTitle("دانلود مدل آفلاین AJAMI-AI")
                                         .setDescription("دانلود مدل قدرتمند Qwen3-4B Q4_K_M به‌صورت محلی")
@@ -312,7 +334,7 @@ private fun AjamiApp() {
                                     modelStatus = "شروع دانلود ممکن نشد: ${e.localizedMessage ?: "خطای ناشناخته"}"
                                 }
                             }
-                        ) { Text(if (modelDownloading) "در حال دانلود..." else if (selectedModelFile.exists() && selectedModelFile.length() > 2_300_000_000L) "مدل Qwen3-4B موجود است" else "دانلود مدل قدرتمند Qwen3-4B") }
+                        ) { Text(if (modelDownloading) "در حال دانلود..." else if (selectedModelFile.exists() && selectedModelFile.length() >= minimumModelSize) "مدل $modelLabel موجود است" else "دانلود $modelLabel") }
                     }
                 }
                 Row(
