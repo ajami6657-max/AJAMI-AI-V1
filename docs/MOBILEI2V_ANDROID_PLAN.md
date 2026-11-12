@@ -59,3 +59,23 @@ Inspected upstream branch `distillation` at commit `884f40a9c58338ad36299b9a4ef6
 - Therefore the distillation branch does not resolve the prompt-conditioning blocker, and no Android export or device integration should be based on assuming its text embeddings steer motion.
 
 Decision: keep the feature isolated and do not add a fake/partial MobileI2V runtime to the stable APK. Next viable research step is to locate a checkpoint plus architecture whose actual forward path consumes text conditioning, then establish a reproducible PyTorch reference test before export.
+
+
+## Alternative model and target-device compatibility review (2026-11-12)
+
+Target device: Samsung Galaxy A53 / Exynos 1280 / 8 GB RAM (ARM64). This is not a Snapdragon/Qualcomm Hexagon device.
+
+### Qualcomm Mobile Video Diffusion (MobileVD)
+
+- The official project page reports 14 frames at 512x256 and 1.7 seconds on a Xiaomi 14 Pro, but its page still labels source code and checkpoint as "soon". The public GitHub repository is only the project-page website, not the inference implementation or model weights.
+- This is not currently a reproducible model package that can be integrated into AJAMI-AI. The published speed result is not evidence of Exynos 1280 support.
+
+### Qualcomm MobileWan / Neodragon and Nightmare Mobile
+
+- MobileWan is an official Qualcomm mobile adaptation of Wan2.2-5B, but its released model card targets Snapdragon-powered mobile phones and BF16; the documented pipeline is text-to-video and the optimized video decoder is not released with the model card.
+- Nightmare Mobile explicitly gates its video-generation features behind Qualcomm Snapdragon/Hexagon hardware. Its documentation says non-Snapdragon devices such as Exynos can use image generation but are not offered video model downloads.
+- Therefore neither is a viable drop-in video backend for the A53.
+
+### Decision
+
+No verified, downloadable, truly generative offline image-to-video model/runtime has been found that is documented to run on the Exynos 1280 / 8 GB A53. Do not add a nonfunctional video model button or imply Qualcomm benchmark results apply to this phone. Continue searching for a CPU/Vulkan/ARM64 implementation with published model weights and a reproducible inference path; otherwise report the hardware/model limitation honestly and keep the existing slideshow/video-editing tools available.
