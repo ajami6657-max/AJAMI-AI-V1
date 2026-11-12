@@ -30,8 +30,9 @@ Target phone: Samsung Galaxy A53, Exynos 1280, 8 GB RAM, arm64. APK size is not 
 
 ## Current implementation status
 - Basic Jetpack Compose chat interface with local Qwen inference: implemented in source; device verification is required.
-- Qwen2.5-0.5B-Instruct Q4_K_M local chat model downloader and chat UI: implemented; on-device behavior still requires phone verification.
-- Offline assistant task modes (general chat, coding, translation, summarization, writing, tutoring): implemented as task prompts over the same small local language model, not separate specialist models.
+- Default offline chat model upgraded in source to official Qwen3-4B-GGUF Q4_K_M (about 2.5 GB), downloaded once from the official Qwen Hugging Face repository and then used locally with llama.cpp; no cloud inference or API. The model requires roughly 2.8 GB of currently free RAM and uses a 2048-token context on the target phone. Real speed, stability, and Qwen3 template compatibility still require an airplane-mode test on the Galaxy A53.
+- Offline assistant task modes (general chat, coding, translation, summarization, writing, tutoring) use the same Qwen3-4B model; coding and learning modes request reasoning mode, while normal chat requests non-thinking mode. These are prompts, not separate specialist models.
+- The previous Qwen2.5 0.5B/1.5B model selection has been replaced in the current source by the single stronger Qwen3-4B default. Existing old model files are not automatically deleted.
 - Offline Stable Diffusion 1.5 image studio UI and local prompt translation hook: added in source; native Android ARM64 engine is being built in CI and the complete flow is not yet verified on the target phone.
 - Stable Diffusion 1.5 Q4_0 model: optional one-time local download (about 3.05 GB); not bundled in the APK.
 - Offline video editing with FFmpeg (select video, trim, compress, extract audio, export): implemented in source; build and device verification are pending.
