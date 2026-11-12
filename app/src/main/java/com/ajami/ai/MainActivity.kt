@@ -118,6 +118,36 @@ private fun AjamiApp() {
         mutableStateListOf(ChatMessage("assistant", "سلام! برای چت آفلاین، مدل را دانلود و بارگذاری کن. پس از بارگذاری، حالت آفلاین فعال می‌شود و نیازی به API نیست."))
     }
     val scope = rememberCoroutineScope()
+    val chatPrefs = remember(context) { context.getSharedPreferences("ajami_chat_local", Context.MODE_PRIVATE) }
+    LaunchedEffect(Unit) {
+        selectedModel = chatPrefs.getString("selected_model", "0.5B") ?: "0.5B"
+        val saved = chatPrefs.getString("messages_json", null)
+        if (!saved.isNullOrBlank()) {
+            runCatching {
+                val array = org.json.JSONArray(saved)
+                messages.clear()
+                for (i in 0 until array.length()) {
+                    val item = array.getJSONObject(i)
+                    val role = item.optString("role", "assistant")
+                    val text = item.optString("text", "")
+                    if (text.isNotBlank()) messages.add(ChatMessage(role, text))
+                }
+            }.onFailure {
+                messages.clear()
+                messages.add(ChatMessage("assistant", "تاریخچه قبلی قابل خواندن نبود؛ گفت‌وگوی تازه شروع شد."))
+            }
+        }
+    }
+    LaunchedEffect(messages.size) {
+        val array = org.json.JSONArray()
+        messages.forEach { msg ->
+            array.put(org.json.JSONObject().put("role", msg.role).put("text", msg.text))
+        }
+        chatPrefs.edit().putString("messages_json", array.toString()).apply()
+    }
+    LaunchedEffect(selectedModel) {
+        chatPrefs.edit().putString("selected_model", selectedModel).apply()
+    }
     val gold = Color(0xFFFFC857)
 
     MaterialTheme(colorScheme = darkColorScheme(primary = gold, background = Color(0xFF071A35), surface = Color(0xFF10294A))) {
@@ -320,6 +350,17 @@ private fun AjamiApp() {
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Text("تاریخچه روی همین گوشی ذخیره می‌شود", color = Color.LightGray, style = MaterialTheme.typography.labelSmall)
+                    TextButton(onClick = {
+                        messages.clear()
+                        messages.add(ChatMessage("assistant", "تاریخچه پاک شد. گفت‌وگوی تازه آماده است."))
+                    }) { Text("پاک‌کردن تاریخچه", color = gold) }
+                }
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
