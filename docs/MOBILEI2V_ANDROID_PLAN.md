@@ -172,3 +172,12 @@ Decision: MobileI2V is a genuine image-conditioned frame generator with an avail
 ### Engineering decision for AJAMI-AI
 
 No option this week passes all release gates for the Galaxy A53: true I2V, downloadable weights with usable license, reproducible Android ARM64/Mali runtime, and actual Exynos 1280 execution. The next low-risk step remains a real Vulkan compute/driver smoke test on the A53 (not just checking PackageManager feature flags), recording GPU/driver/API details and memory behavior. Only after that should a small MobileI2V export-parity experiment be attempted. Do not download a multi-gigabyte pack, change the stable main branch, or claim a new APK/model works until device inference is verified.
+
+
+## A53 Vulkan probe result and backend risk (2026-11-13)
+
+The user reports that the in-app Vulkan probe completed successfully on the Galaxy A53. Source inspection of `app/src/main/cpp/vulkan_probe.cpp` shows what this proves: Vulkan instance/device creation, discovery of a compute-capable queue, logical-device creation, 4 KiB buffer allocation/binding, command-buffer recording of `vkCmdFillBuffer`, queue submission, and fence completion. It does **not** dispatch a compute shader, test shader compilation, exercise ggml's Vulkan kernels, or run any diffusion model. Do not describe it as proof that stable-diffusion.cpp or MobileI2V inference works on the phone.
+
+A recent public Android-native inference issue reports a Galaxy A53 / Mali-G68 Vulkan crash in ggml Vulkan buffer setup (`vkGetBufferDeviceAddress` null-pointer SIGSEGV), while that project's Android build is documented as CPU-only. This is a warning signal, not a conclusive test of AJAMI-AI's exact pinned stable-diffusion.cpp revision; nevertheless it makes blindly flipping `SD_VULKAN=ON` unsafe. See https://github.com/leehack/stable-diffusion-native/issues/2 (release triage dated 2026-10-05).
+
+Decision: retain the passing low-level probe as a device capability check, but do not enable Vulkan in the production image backend or assume it accelerates video generation. Next GPU experiment must build an isolated backend branch and run an actual shader/ggml operator smoke test with crash-safe fallback to CPU. It must record GPU/driver/API, shader initialization, operator output correctness, peak memory and thermal behavior. Only after that may a model-level test be attempted. The stable APK remains unchanged.
