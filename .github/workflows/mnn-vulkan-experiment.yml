@@ -58,6 +58,25 @@ jobs:
           cp -a /tmp/MNN/include app/src/main/cpp/third_party/MNN/
           echo "Built MNN Vulkan library: $LIB"
           ls -lh app/src/main/jniLibs/arm64-v8a/libMNN.so
+      - name: Compile embedded Vulkan compute shader
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y glslang-tools
+          mkdir -p app/src/main/cpp/generated
+          glslangValidator -V --target-env vulkan1.0 app/src/main/cpp/compute_smoke.comp -o /tmp/ajami_compute.spv
+          python3 - <<'PY'
+          import struct
+          data = open('/tmp/ajami_compute.spv', 'rb').read()
+          if len(data) % 4:
+              raise SystemExit('SPIR-V byte count is not divisible by four')
+          words = struct.unpack('<' + 'I' * (len(data) // 4), data)
+          with open('app/src/main/cpp/generated/compute_shader_spv.h', 'w') as f:
+              f.write('#pragma once\\n#include <cstdint>\\nalignas(4) static const uint32_t ajami_compute_spv[] = {\\n')
+              for i in range(0, len(words), 8):
+                  f.write('    ' + ', '.join('0x%08xu' % x for x in words[i:i+8]) + ',\\n')
+              f.write('};\\n')
+          print('Embedded SPIR-V words:', len(words))
+          PY
       - name: Build isolated diagnostic APK
         run: gradle --no-daemon assembleDebug
       - uses: actions/upload-artifact@v4
