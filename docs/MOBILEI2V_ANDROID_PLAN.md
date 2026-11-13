@@ -8,7 +8,7 @@ Add a genuine, fully local image-to-video pipeline to AJAMI-AI. The feature must
 
 ## Verified upstream architecture
 
-Source of truth: [hustvl/MobileI2V](https://github.com/hustvl/MobileI2V), Apache-2.0 repository license.
+Source of truth: [hustvl/MobileI2V](https://github.com/hustvl/MobileI2V), official upstream code repository. The inspected GitHub tree has no top-level LICENSE file; the Hugging Face model card lists MIT metadata for the checkpoint. Do not infer the code repository license from the checkpoint metadata.
 
 The official `MobileI2V_300M_img512.yaml` config specifies:
 
