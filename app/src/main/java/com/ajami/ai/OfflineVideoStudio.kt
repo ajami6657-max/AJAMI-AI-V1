@@ -38,6 +38,8 @@ fun OfflineVideoStudio(languageModel: LlamaModel?) {
     var lastOutput by remember { mutableStateOf<File?>(null) }
     var aspect by remember { mutableStateOf("عمودی ۹:۱۶") }
     var secondsPerPhoto by remember { mutableStateOf("3") }
+    var vulkanBusy by remember { mutableStateOf(false) }
+    var vulkanResult by remember { mutableStateOf<String?>(null) }
 
     suspend fun copyUri(uri: Uri, prefix: String, fallbackExt: String): File = withContext(Dispatchers.IO) {
         val mime = context.contentResolver.getType(uri).orEmpty()
@@ -168,6 +170,27 @@ fun OfflineVideoStudio(languageModel: LlamaModel?) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("استودیوی ساخت فیلم آفلاین", style = MaterialTheme.typography.titleLarge)
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("آزمایش سازگاری GPU برای موتور ویدئوساز", style = MaterialTheme.typography.titleMedium)
+                Text("این آزمایش روی خود گوشی بررسی می‌کند که Vulkan واقعاً دستگاه محاسباتی بسازد، حافظه GPU را تخصیص دهد و یک فرمان محاسباتی را اجرا کند. این تست مدل ویدئوساز را اجرا نمی‌کند.")
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !vulkanBusy,
+                    onClick = {
+                        vulkanBusy = true
+                        vulkanResult = "در حال آزمایش Vulkan روی GPU گوشی..."
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) { VulkanProbe.execute() }
+                            vulkanResult = result
+                            vulkanBusy = false
+                        }
+                    }
+                ) { Text(if (vulkanBusy) "در حال آزمایش GPU..." else "بررسی واقعی Vulkan گوشی") }
+                if (vulkanBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                vulkanResult?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            }
+        }
         OfflineFilmMaker(languageModel)
         Text("ساخت کلیپ از عکس‌ها همراه موسیقی، به‌علاوه ابزارهای تدوین ویدئو؛ بدون اینترنت و API.")
 
