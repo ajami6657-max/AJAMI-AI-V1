@@ -166,7 +166,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                                             process.inputStream.bufferedReader().useLines { lines ->
                                                 lines.forEach { line ->
                                                     if (log.length > 5000) log.delete(0, 2500)
-                                                    log.append(line).append('\\n')
+                                                    log.append(line).append("\n")
                                                 }
                                             }
                                             val exitCode = process.waitFor()
