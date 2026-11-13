@@ -28,6 +28,23 @@ android {
     externalNativeBuild {
         cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.31.6" }
     }
+    signingConfigs {
+        create("release") {
+            val signingStore = System.getenv("AJAMI_KEYSTORE_PATH")
+            if (!signingStore.isNullOrBlank()) {
+                storeFile = file(signingStore)
+                storePassword = System.getenv("AJAMI_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("AJAMI_KEY_ALIAS")
+                keyPassword = System.getenv("AJAMI_KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+        }
+    }
     packaging {
         jniLibs {
             pickFirsts += "**/libc++_shared.so"
