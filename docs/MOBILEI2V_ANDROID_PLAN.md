@@ -132,3 +132,43 @@ Source inspected: https://github.com/Tiggy-Chan/LocalMotion
 ### Current decision and next engineering step
 
 No candidate in this review meets all four required gates for AJAMI-AI: genuine I2V conditioning, downloadable licensed weights, reproducible ARM64/Mali runtime, and verified execution on Exynos 1280. Saient is a useful Vulkan/mobile-memory reference but is T2V on a different phone; MobileVD is true I2V research but its reported device is Snapdragon and a reproducible A53 package was not found. Keep both as research leads only. Next implement a small Vulkan capability/driver smoke test on the actual A53 before investing in a multi-gigabyte video model pack. Do not change the stable main branch.
+
+## Weekly model audit (2026-11-13)
+
+### New research lead: CineMobile
+
+Sources: [arXiv paper 2607.03803](https://arxiv.org/abs/2607.03803), [Infinix NOTE 60 Ultra specifications](https://mx.infinixmobility.com/specs/note-60-ultra), [MediaTek Dimensity 8400 specifications](https://www.mediatek.com/products/smartphones/mediatek-dimensity-8400).
+
+- This is a genuine I2V research model, not a slideshow: the paper describes a 4-step video diffusion generator conditioned on an input frame and evaluates generated 49-frame 480p sequences. Its supported effects are specialized cinematic modes (bullet time, dolly zoom, slow motion), not an unrestricted general-purpose video editor.
+- The reported device is Infinix NOTE 60 Ultra with Dimensity 8400 Ultimate, Mali-G720 MC7 and MediaTek NPU 880. The paper claims a model footprint below 1 GB, peak memory about 1.8 GB, and roughly 20 seconds for a 49-frame 480p clip. These are paper results on that device, not A53 measurements.
+- The student starts from Wan2.1-v1.1-Fun-I2V (1.5B parameters); the teacher is Wan2.1-I2V-14B. The final model uses 4-step distillation and hybrid quantization (4-bit FFN weights, FP8 other weights, FP16 activations). Effect-specific LoRAs are used for the three motion types.
+- No official source repository, downloadable CineMobile checkpoint/model pack, explicit model license, Android runtime package, ONNX/TFLite/Vulkan export, or reproducible install instructions were found in this review. The paper mentions text-embedding projections, but without released inference code the exact user-prompt contract and whether arbitrary free-form prompts are consumed cannot be independently verified.
+- Hardware transfer is not established: the A53 has Exynos 1280 / Mali-G68 MC4 and does not have the Dimensity 8400's Mali-G720 MC7 or NPU 880. Both being Mali-family GPUs is not evidence of equivalent performance or runtime support.
+
+Decision: keep CineMobile on the research watchlist only. It is the strongest new non-Snapdragon Android/Mali I2V research lead found this week, but it is not currently integrable because the code, weights, license, runtime and target-device proof are missing.
+
+### MobileI2V release and architecture re-audit
+
+Sources: [official GitHub repository](https://github.com/hustvl/MobileI2V), [official Hugging Face checkpoint](https://huggingface.co/hustvl/MobileI2V), [official Turbo-VAED weights](https://huggingface.co/hustvl/Turbo-VAED), [LTX-Video VAE files](https://huggingface.co/Lightricks/LTX-Video/tree/main/vae), [Qwen2-0.5B weights](https://huggingface.co/Qwen/Qwen2-0.5B).
+
+- Correction to earlier status: an official `hybrid_371.pth` checkpoint is downloadable from HUST's Hugging Face repository. Its listed size is 1.07 GB, model-card license metadata is MIT, and its published SHA-256 is `bc6a545302b342b87d83a4d78e9b74d47ca59fbf908fd8e13d9ecedbe1a37f2d`. The checkpoint was uploaded on 2026-05-20.
+- This is not evidence that the distilled two-step student is released. The official main inference script defaults FlowEuler to 30 steps. The distillation-branch config still points its teacher and DMD paths to `hybrid_371.pth`; no separate final two-step student checkpoint was found. The paper's 2.24-second iPhone result is a research result for the distilled variant, not a verified download/run of the available checkpoint.
+- The official paper reports 17 frames at 1280x720; on iPhone 16 Pro Max it reports 20.13 s for the 30-step model and 2.24 s for the two-step distilled model. Its mobile deployment path is PyTorch -> TorchScript -> Core ML (.mlpackage), benchmarked through Core ML on iPhone 16 Pro. No official Android, ONNX Runtime, TFLite, NNAPI or Vulkan package was found.
+- Rechecked `mobiledit.py`: the active stack is seven `SanaBlock_cross`, one `SanaBlock_vanila`, seven more `SanaBlock_cross`, and one more `SanaBlock_vanila`. In both active block forward methods, the cross-attention residual call is commented out. The separate `SanaBlock` class has active cross-attention but is not instantiated by the Mobiledit constructor. Thus Qwen embeddings are computed and passed, but the active forward path does not consume them; arbitrary text prompts are not demonstrated as a real motion control. The actual controls documented by the paper/code are the reference image and scalar optical-flow/motion score.
+- Known downloadable component sizes: MobileI2V checkpoint 1.07 GB; LTX video VAE 1.68 GB; Turbo-VAED-LTX decoder 169 MB; Qwen2-0.5B 988 MB. A straightforward full stack is approximately 3.9 GB before temporary files. Since the active denoiser blocks ignore text embeddings, omitting Qwen may be possible after a controlled parity test, but it must not be removed based on assumption alone.
+- License caution: the MobileI2V and Turbo-VAED Hugging Face model cards show MIT metadata, and Qwen2-0.5B is Apache-2.0. The LTX-Video VAE repository is marked `other` and contains version-specific license terms; do not treat the complete model stack as uniformly MIT or assume unrestricted redistribution. The upstream MobileI2V GitHub repository itself has no top-level LICENSE file in the inspected tree, so the model-card license should not be silently presented as a confirmed code-repository license.
+- The upstream requirements pin a CUDA PyTorch stack (including torch 2.4.0+cu121 and NVIDIA CUDA packages). This is not an Android runtime. No official ONNX/TFLite export or Android operator coverage has been demonstrated.
+
+Decision: MobileI2V is a genuine image-conditioned frame generator with an available base checkpoint, but it is not a prompt-controlled, ready-to-run Android engine. Keep it isolated from main. It may be evaluated as a motion-score-only research prototype only after export parity, runtime smoke tests and A53 memory/thermal measurements.
+
+### Other mobile video candidates rechecked
+
+- **Taming Diffusion Transformer / Snap mobile DiT:** official Snap paper/site reports about 15 FPS on iPhone 16 Pro Max for a 0.9B, four-step text-to-video model at 288x512. It is T2V, not the requested I2V path, and no verified Android/Mali package was found. Reject for this feature.
+- **MobileWan / Neodragon:** Qualcomm-oriented Snapdragon/Hexagon mobile work; the public MobileWan pipeline is text-to-video, not I2V, and does not establish Exynos/Mali support. Reject as an A53 drop-in.
+- **MobileVD:** genuine I2V research, but the published 1.7-second result is on Xiaomi 14 Pro / Snapdragon 8 Gen 3; a complete public Android implementation and downloadable checkpoint were not verified. Research lead only.
+- **MOVD / On-device Sora:** mobile text-to-video work with iPhone/Core ML deployment, not a verified Android I2V package. Reject for the current target.
+- **Saient / Quartz:** useful evidence for offline Android Vulkan T2V on Galaxy S24, but its documented model is Wan2.1 T2V and its phone is not the A53. It is not an I2V backend.
+
+### Engineering decision for AJAMI-AI
+
+No option this week passes all release gates for the Galaxy A53: true I2V, downloadable weights with usable license, reproducible Android ARM64/Mali runtime, and actual Exynos 1280 execution. The next low-risk step remains a real Vulkan compute/driver smoke test on the A53 (not just checking PackageManager feature flags), recording GPU/driver/API details and memory behavior. Only after that should a small MobileI2V export-parity experiment be attempted. Do not download a multi-gigabyte pack, change the stable main branch, or claim a new APK/model works until device inference is verified.
