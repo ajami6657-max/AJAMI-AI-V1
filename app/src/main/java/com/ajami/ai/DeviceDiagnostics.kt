@@ -22,6 +22,8 @@ fun DeviceDiagnostics() {
     val context = androidx.compose.ui.platform.LocalContext.current
     var vulkanBusy by remember { mutableStateOf(false) }
     var vulkanResult by remember { mutableStateOf("آزمایش عملی هنوز اجرا نشده است.") }
+    var mnnBusy by remember { mutableStateOf(false) }
+    var mnnResult by remember { mutableStateOf("آزمایش موتور MNN هنوز اجرا نشده است.") }
     val scope = rememberCoroutineScope()
     val pm = context.packageManager
     val features = pm.systemAvailableFeatures.orEmpty()
@@ -38,7 +40,7 @@ fun DeviceDiagnostics() {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text("گزارش سازگاری دستگاه", color = darkGold, style = MaterialTheme.typography.titleLarge)
-        Text("این گزارش فقط قابلیت‌های اعلام‌شده توسط اندروید را می‌خواند؛ اجرای واقعی مدل و سازگاری درایور Mali هنوز باید جداگانه آزمایش شود.", color = Color.LightGray)
+        Text("این گزارش قابلیت‌های دستگاه را نشان می‌دهد؛ اجرای واقعی مدل و سازگاری درایور Mali باید جداگانه آزمایش شود.", color = Color.LightGray)
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF10294A))) {
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("دستگاه: ${Build.MANUFACTURER} ${Build.MODEL}", color = Color.White)
@@ -50,7 +52,7 @@ fun DeviceDiagnostics() {
                 Text("Vulkan hardware level: ${if (vulkanLevel > 0) vulkanLevel else "اعلام نشده"}", color = Color.White)
                 Text("Vulkan hardware version: ${if (vulkanVersion > 0) "0x" + vulkanVersion.toString(16) else "اعلام نشده"}", color = Color.White)
                 Text(
-                    if (vulkanLevel > 0 && vulkanVersion > 0) "اندروید وجود قابلیت Vulkan را گزارش می‌کند؛ این به‌تنهایی تأیید اجرای موتور ویدئو نیست."
+                    if (vulkanLevel > 0 && vulkanVersion > 0) "اندروید وجود قابلیت Vulkan را گزارش می‌کند؛ این به‌تنهایی تأیید اجرای مدل نیست."
                     else "قابلیت Vulkan در فهرست ویژگی‌های اندروید کامل گزارش نشده است.",
                     color = darkGold
                 )
@@ -58,7 +60,7 @@ fun DeviceDiagnostics() {
         }
         Button(enabled = !vulkanBusy, onClick = {
             vulkanBusy = true
-            vulkanResult = "در حال ساخت دستگاه Vulkan و ارسال فرمان آزمایشی..."
+            vulkanResult = "در حال اجرای Shader محاسباتی Vulkan..."
             scope.launch {
                 vulkanResult = withContext(Dispatchers.IO) { VulkanProbe.execute() }
                 vulkanBusy = false
@@ -67,6 +69,23 @@ fun DeviceDiagnostics() {
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF10294A))) {
             Text(vulkanResult, modifier = Modifier.fillMaxWidth().padding(12.dp), color = Color.White)
         }
-        Text("این تست ایجاد Instance/Device، انتخاب صف محاسباتی، تخصیص بافر و ارسال فرمان انتقال به صف GPU را بررسی می‌کند؛ هنوز اجرای مدل ویدئوساز یا Shader یادگیری عمیق نیست.", color = Color.LightGray)
+        Divider()
+        Text("آزمایش موتور MNN روی GPU", color = darkGold, style = MaterialTheme.typography.titleMedium)
+        Text("این آزمایش جدا از موتور قبلی است و فقط تلاش می‌کند Runtime واقعی MNN/Vulkan را روی گوشی راه‌اندازی کند. در صورت شکست، نسخه اصلی برنامه تغییر نمی‌کند.", color = Color.LightGray)
+        Button(enabled = !mnnBusy, onClick = {
+            mnnBusy = true
+            mnnResult = "در حال راه‌اندازی MNN Vulkan..."
+            scope.launch {
+                mnnResult = withContext(Dispatchers.IO) {
+                    runCatching { MnnVulkanProbe.execute() }
+                        .getOrElse { "خطای راه‌اندازی MNN: ${it.localizedMessage ?: it.javaClass.simpleName}" }
+                }
+                mnnBusy = false
+            }
+        }, modifier = Modifier.fillMaxWidth()) { Text(if (mnnBusy) "در حال آزمایش MNN..." else "آزمایش MNN Vulkan") }
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF10294A))) {
+            Text(mnnResult, modifier = Modifier.fillMaxWidth().padding(12.dp), color = Color.White)
+        }
+        Text("موفقیت این مرحله فقط ایجاد Runtime را ثابت می‌کند؛ اجرای یک عملگر محاسباتی و سپس مدل تصویر، آزمون‌های بعدی هستند.", color = Color.LightGray)
     }
 }
