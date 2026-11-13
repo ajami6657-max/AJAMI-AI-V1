@@ -39,7 +39,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
     val modelName = "v1-5-pruned_Q4_0.gguf"
     val modelFile = remember { File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), modelName) }
     var prompt by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("مدل محلی تصویرساز حدود ۳٫۱ گیگابایت است. پس از دریافت، تولید تصویر بدون اینترنت انجام می‌شود.") }
+    var status by remember { mutableStateOf("حالت سریع: خروجی ۲۵۶×۲۵۶ با ۸ مرحله. مدل فعلی همچنان حدود ۳٫۱ گیگابایت است.") }
     var downloading by remember { mutableStateOf(false) }
     var generating by remember { mutableStateOf(false) }
     var downloadId by remember { mutableLongStateOf(-1L) }
@@ -85,8 +85,8 @@ fun AIImageStudio(languageModel: LlamaModel?) {
         ) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("تصویرساز هوش مصنوعی آفلاین", color = gold, style = MaterialTheme.typography.titleMedium)
-                Text("Stable Diffusion 1.5 • مدل Q4_0 • خروجی اولیه 512×512", color = Color.White)
-                Text("مدل حدود ۳٫۱ گیگابایت فضا می‌خواهد. پس از دانلود، هیچ API یا سروری استفاده نمی‌شود. برای درک بهتر توصیف‌ها، مدل چت آفلاین Qwen را نیز بارگذاری کن.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+                Text("Stable Diffusion 1.5 • حالت سریع CPU • خروجی 256×256 • ۸ مرحله", color = Color.White)
+                Text("مدل فعلی حدود ۳٫۱ گیگابایت است. برای سرعت بیشتر، وضوح و تعداد مراحل کاهش یافته‌اند. تولید تصویر کاملاً آفلاین است.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                 Text(status, color = Color.White, style = MaterialTheme.typography.bodySmall)
 
                 if (!modelFile.exists() || modelFile.length() < 2_800_000_000L) {
@@ -152,9 +152,9 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                                             "-m", modelFile.absolutePath,
                                             "-p", imagePrompt,
                                             "-o", output.absolutePath,
-                                            "-W", "512", "-H", "512",
-                                            "--steps", "15",
-                                            "--cfg-scale", "7.0",
+                                            "-W", "256", "-H", "256",
+                                            "--steps", "8",
+                                            "--cfg-scale", "6.0",
                                             "--backend", "cpu",
                                             "--flash-attn", "on"
                                         ).redirectErrorStream(true).start()
@@ -185,7 +185,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
 
                 if (generating) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Text("این کار ممکن است چند دقیقه طول بکشد. گوشی را خنک نگه دار و برنامه را باز بگذار.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+                    Text("حالت سریع فعال است؛ گوشی را خنک نگه دار و برنامه را باز بگذار.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                 }
                 resultBitmap?.let { bitmap ->
                     Image(
