@@ -71,10 +71,10 @@ jobs:
               raise SystemExit('SPIR-V byte count is not divisible by four')
           words = struct.unpack('<' + 'I' * (len(data) // 4), data)
           with open('app/src/main/cpp/generated/compute_shader_spv.h', 'w') as f:
-              f.write('#pragma once\\n#include <cstdint>\\nalignas(4) static const uint32_t ajami_compute_spv[] = {\\n')
+              f.write('#pragma once\n#include <cstdint>\nalignas(4) static const uint32_t ajami_compute_spv[] = {\n')
               for i in range(0, len(words), 8):
-                  f.write('    ' + ', '.join('0x%08xu' % x for x in words[i:i+8]) + ',\\n')
-              f.write('};\\n')
+                  f.write('    ' + ', '.join('0x%08xu' % x for x in words[i:i+8]) + ',\n')
+              f.write('};\n')
           print('Embedded SPIR-V words:', len(words))
           PY
       - name: Build isolated diagnostic APK
