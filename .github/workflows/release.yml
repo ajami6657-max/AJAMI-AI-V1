@@ -1,0 +1,70 @@
+name: AJAMI-AI Signed Release APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Validate signing secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.AJAMI_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.AJAMI_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AJAMI_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.AJAMI_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_B64" || { echo "Missing AJAMI_KEYSTORE_BASE64"; exit 1; }
+          test -n "$STORE_PASSWORD" || { echo "Missing AJAMI_KEYSTORE_PASSWORD"; exit 1; }
+          test -n "$KEY_ALIAS" || { echo "Missing AJAMI_KEY_ALIAS"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "Missing AJAMI_KEY_PASSWORD"; exit 1; }
+          mkdir -p app/keystore
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > app/keystore/ajami-release.jks
+      - name: Build offline image engine for Android ARM64
+        timeout-minutes: 90
+        run: |
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" --install "ndk;27.2.12479018" "cmake;3.31.6"
+          git clone --depth 1 --recurse-submodules https://github.com/leejet/stable-diffusion.cpp.git /tmp/stable-diffusion.cpp
+          NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          cmake -S /tmp/stable-diffusion.cpp -B /tmp/stable-diffusion.cpp/build-android -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-28 \
+            -DANDROID_STL=c++_static \
+            -DGGML_OPENMP=OFF \
+            -DSD_OPENCL=OFF \
+            -DSD_VULKAN=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/stable-diffusion.cpp/build-android --config Release --target sd-cli -j4
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          BIN="$(find /tmp/stable-diffusion.cpp/build-android -type f -name sd-cli -perm -111 | head -n 1)"
+          test -n "$BIN"
+          cp "$BIN" app/src/main/jniLibs/arm64-v8a/libsd.so
+          chmod 755 app/src/main/jniLibs/arm64-v8a/libsd.so
+      - name: Build signed release APK
+        env:
+          AJAMI_KEYSTORE_PATH: app/keystore/ajami-release.jks
+          AJAMI_KEYSTORE_PASSWORD: ${{ secrets.AJAMI_KEYSTORE_PASSWORD }}
+          AJAMI_KEY_ALIAS: ${{ secrets.AJAMI_KEY_ALIAS }}
+          AJAMI_KEY_PASSWORD: ${{ secrets.AJAMI_KEY_PASSWORD }}
+        run: gradle --no-daemon assembleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AJAMI-AI-signed-release
+          path: app/build/outputs/apk/release/app-release.apk
