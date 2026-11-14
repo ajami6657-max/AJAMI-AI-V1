@@ -181,3 +181,16 @@ The user reports that the in-app Vulkan probe completed successfully on the Gala
 A recent public Android-native inference issue reports a Galaxy A53 / Mali-G68 Vulkan crash in ggml Vulkan buffer setup (`vkGetBufferDeviceAddress` null-pointer SIGSEGV), while that project's Android build is documented as CPU-only. This is a warning signal, not a conclusive test of AJAMI-AI's exact pinned stable-diffusion.cpp revision; nevertheless it makes blindly flipping `SD_VULKAN=ON` unsafe. See https://github.com/leehack/stable-diffusion-native/issues/2 (release triage dated 2026-10-05).
 
 Decision: retain the passing low-level probe as a device capability check, but do not enable Vulkan in the production image backend or assume it accelerates video generation. Next GPU experiment must build an isolated backend branch and run an actual shader/ggml operator smoke test with crash-safe fallback to CPU. It must record GPU/driver/API, shader initialization, operator output correctness, peak memory and thermal behavior. Only after that may a model-level test be attempted. The stable APK remains unchanged.
+
+
+## Correction: Vulkan probe source re-inspection (2026-11-15)
+
+A direct re-read of the current branch's `vulkan_probe.cpp`, `compute_smoke.comp`, and `build.yml` corrects the earlier 2026-11-13 description:
+
+- The native probe does more than create a Vulkan device or call `vkCmdFillBuffer`. It loads the embedded SPIR-V compute shader, creates a shader module and compute pipeline, binds a storage buffer, dispatches `vkCmdDispatch(command, 1, 1, 1)`, waits on a fence, maps the result and validates all 64 values against `value * 3 + 7`.
+- The workflow compiles `compute_smoke.comp` to SPIR-V with `glslangValidator`, embeds the words in `generated/compute_shader_spv.h`, and builds the Android APK.
+- Therefore, a successful run of this exact probe on the A53 is evidence that this Mali driver can execute this small Vulkan compute shader and return correct results. The earlier statement that the probe does not dispatch a shader was incorrect and is superseded by this section.
+- This remains a narrow capability test. It does not establish that stable-diffusion.cpp's ggml Vulkan backend, its required extensions/operators, or MobileI2V's full denoiser/VAE can execute correctly or fit in memory. The current workflow still configures `-DSD_VULKAN=OFF`.
+- Next safe experiment: build an isolated ggml-Vulkan test against the exact stable-diffusion.cpp revision intended for AJAMI-AI, without enabling it in the production APK. Require correct operator outputs, graceful CPU fallback, peak-memory and thermal measurements on the A53 before any model integration.
+
+No claim of real generative I2V support is made by this probe.
