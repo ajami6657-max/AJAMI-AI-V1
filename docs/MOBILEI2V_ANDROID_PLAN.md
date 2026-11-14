@@ -194,3 +194,20 @@ A direct re-read of the current branch's `vulkan_probe.cpp`, `compute_smoke.comp
 - Next safe experiment: build an isolated ggml-Vulkan test against the exact stable-diffusion.cpp revision intended for AJAMI-AI, without enabling it in the production APK. Require correct operator outputs, graceful CPU fallback, peak-memory and thermal measurements on the A53 before any model integration.
 
 No claim of real generative I2V support is made by this probe.
+
+## User-selected output duration (2026-11-15)
+
+The requested final output duration is **60 seconds**. This is a product requirement, not evidence that the target phone can currently generate it.
+
+### Required implementation behavior
+
+- The saved MP4 must have a measured duration of 60 seconds (allowing only normal container rounding tolerance).
+- Do not satisfy this requirement by stretching a still image, adding pan/zoom, or merely changing MP4 metadata.
+- First validate a short genuine I2V segment on the Galaxy A53. Only after that succeeds, evaluate sequential chunk generation.
+- For chunking, feed the final generated frame of the previous chunk as the next chunk's image condition where the selected model supports it; explicitly test identity, motion continuity, and seam artifacts. If continuity cannot be maintained, do not silently concatenate unrelated clips.
+- Measure real generated frames, FPS, wall-clock time, peak RAM, thermal throttling, battery use, and failure rate on the phone. A 60-second export may take substantially longer than 60 seconds to generate.
+- Keep the requested duration separate from the first device milestone: the initial milestone remains a real, playable short I2V clip generated fully offline on the A53. A passing APK build or a successful Vulkan shader probe is not a pass for either milestone.
+
+### Frame-count planning
+
+At 8 generated frames per second, a 60-second clip contains 480 frames; at 12 fps it contains 720 frames; at 24 fps it contains 1,440 frames. These are planning figures only. Do not upscale frame rate by duplicating/interpolating frames and describe that as native model generation. Select the native generation rate only after a real device benchmark.
