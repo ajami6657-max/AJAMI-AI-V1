@@ -3,7 +3,7 @@ name: Build AJAMI-AI APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main, 'feature/mobilei2v-offline-engine', 'feature/a53-vulkan-smoke-test' ]
+    branches: [ main, 'feature/mobilei2v-offline-engine', 'feature/a53-vulkan-smoke-test', 'feature/a53-vulkan-engine-build' ]
 
 concurrency:
   group: ajami-ai-apk-build
@@ -41,7 +41,7 @@ jobs:
             -DANDROID_STL=c++_static \
             -DGGML_OPENMP=OFF \
             -DSD_OPENCL=OFF \
-            -DSD_VULKAN=OFF \
+            -DSD_VULKAN=ON \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build /tmp/stable-diffusion.cpp/build-android --config Release --target sd-cli -j4
           mkdir -p app/src/main/jniLibs/arm64-v8a
