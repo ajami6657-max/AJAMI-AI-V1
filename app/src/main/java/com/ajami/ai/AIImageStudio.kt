@@ -39,11 +39,11 @@ fun AIImageStudio(languageModel: LlamaModel?) {
     val modelName = "v1-5-pruned_Q4_0.gguf"
     val modelFile = remember { File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), modelName) }
     var prompt by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("مدل محلی تصویرساز حدود ۳٫۱ گیگابایت است. پس از دریافت، تولید تصویر بدون اینترنت انجام می‌شود.") }
+    var status by remember { mutableStateOf("حالت سریع: خروجی ۲۵۶×۲۵۶ با ۸ مرحله. مدل فعلی همچنان حدود ۳٫۱ گیگابایت است.") }
     var downloading by remember { mutableStateOf(false) }
     var generating by remember { mutableStateOf(false) }
     var downloadId by remember { mutableLongStateOf(-1L) }
-    var resultBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var resultBitmaps by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
     val gold = Color(0xFFFFC857)
 
     LaunchedEffect(Unit) {
@@ -85,8 +85,8 @@ fun AIImageStudio(languageModel: LlamaModel?) {
         ) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("تصویرساز هوش مصنوعی آفلاین", color = gold, style = MaterialTheme.typography.titleMedium)
-                Text("Stable Diffusion 1.5 • مدل Q4_0 • خروجی اولیه 512×512", color = Color.White)
-                Text("مدل حدود ۳٫۱ گیگابایت فضا می‌خواهد. پس از دانلود، هیچ API یا سروری استفاده نمی‌شود. برای درک بهتر توصیف‌ها، مدل چت آفلاین Qwen را نیز بارگذاری کن.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+                Text("Stable Diffusion 1.5 • تولید ۴ تصویر • حالت سریع CPU • 256×256 • ۸ مرحله", color = Color.White)
+                Text("در هر درخواست ۴ تصویر متفاوت ساخته می‌شود؛ به دلیل اجرای متوالی، زمان بیشتری لازم است. مدل حدود ۳٫۱ گیگابایت است و تولید کاملاً آفلاین انجام می‌شود.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                 Text(status, color = Color.White, style = MaterialTheme.typography.bodySmall)
 
                 if (!modelFile.exists() || modelFile.length() < 2_800_000_000L) {
@@ -126,16 +126,15 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                         enabled = !generating && prompt.isNotBlank(),
                         onClick = {
                             generating = true
-                            resultBitmap = null
+                            resultBitmaps = emptyList()
                             status = "در حال اجرای مدل روی پردازنده گوشی..."
                             scope.launch {
                                 try {
-                                    val bitmap = withContext(Dispatchers.IO) {
+                                    val bitmaps = withContext(Dispatchers.IO) {
                                         val engine = File(context.applicationInfo.nativeLibraryDir, "libsd.so")
                                         if (!engine.exists()) error("موتور تصویرسازی در این APK موجود نیست.")
                                         if (!modelFile.exists() || modelFile.length() < 2_800_000_000L) error("فایل مدل کامل نیست.")
                                         engine.setExecutable(true)
-                                        val output = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "ajami_image_" + System.currentTimeMillis() + ".png")
                                         val rawPrompt = prompt.trim()
                                         val hasPersian = Regex("[\\u0600-\\u06FF]").containsMatchIn(rawPrompt)
                                         val imagePrompt = if (hasPersian) {
@@ -147,32 +146,40 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                                                 maxTokens = 160
                                             ).text.trim()
                                         } else rawPrompt
-                                        val process = ProcessBuilder(
-                                            engine.absolutePath,
-                                            "-m", modelFile.absolutePath,
-                                            "-p", imagePrompt,
-                                            "-o", output.absolutePath,
-                                            "-W", "512", "-H", "512",
-                                            "--steps", "15",
-                                            "--cfg-scale", "7.0",
-                                            "--backend", "cpu",
-                                            "--flash-attn", "on"
-                                        ).redirectErrorStream(true).start()
-                                        val log = StringBuilder()
-                                        process.inputStream.bufferedReader().useLines { lines ->
-                                            lines.forEach { line ->
-                                                if (log.length > 5000) log.delete(0, 2500)
-                                                log.append(line).append('\n')
+                                        val generated = mutableListOf<Bitmap>()
+                                        repeat(4) { index ->
+                                            val output = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "ajami_image_" + System.currentTimeMillis() + "_" + index + ".png")
+                                            val seed = System.currentTimeMillis() + index
+                                            val process = ProcessBuilder(
+                                                engine.absolutePath,
+                                                "-m", modelFile.absolutePath,
+                                                "-p", imagePrompt,
+                                                "-o", output.absolutePath,
+                                                "-W", "256", "-H", "256",
+                                                "--steps", "8",
+                                                "--cfg-scale", "6.0",
+                                                "--seed", seed.toString(),
+                                                "--backend", "cpu",
+                                                "--flash-attn", "on"
+                                            ).redirectErrorStream(true).start()
+                                            val log = StringBuilder()
+                                            process.inputStream.bufferedReader().useLines { lines ->
+                                                lines.forEach { line ->
+                                                    if (log.length > 5000) log.delete(0, 2500)
+                                                    log.append(line).append('\n')
+                                                }
                                             }
+                                            val exitCode = process.waitFor()
+                                            if (exitCode != 0 || !output.exists() || output.length() == 0L) {
+                                                error("تولید تصویر شماره ${index + 1} ناموفق بود: " + log.takeLast(700))
+                                            }
+                                            generated.add(BitmapFactory.decodeFile(output.absolutePath)
+                                                ?: error("خواندن تصویر شماره ${index + 1} ناموفق بود."))
                                         }
-                                        val exitCode = process.waitFor()
-                                        if (exitCode != 0 || !output.exists() || output.length() == 0L) {
-                                            error("موتور تصویرسازی خطا داد: " + log.takeLast(700))
-                                        }
-                                        BitmapFactory.decodeFile(output.absolutePath) ?: error("خواندن تصویر خروجی ناموفق بود.")
+                                        generated
                                     }
-                                    resultBitmap = bitmap
-                                    status = "تصویر روی گوشی تولید شد و در پوشه تصاویر برنامه ذخیره شده است."
+                                    resultBitmaps = bitmaps
+                                    status = "هر ۴ تصویر با موفقیت روی گوشی تولید شدند."
                                 } catch (e: Throwable) {
                                     status = "ساخت تصویر انجام نشد: " + (e.localizedMessage ?: e.javaClass.simpleName)
                                 } finally {
@@ -185,19 +192,20 @@ fun AIImageStudio(languageModel: LlamaModel?) {
 
                 if (generating) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Text("این کار ممکن است چند دقیقه طول بکشد. گوشی را خنک نگه دار و برنامه را باز بگذار.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+                    Text("در حال ساخت تصویر ${resultBitmaps.size + 1} از ۴؛ گوشی را خنک نگه دار و برنامه را باز بگذار.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                 }
-                resultBitmap?.let { bitmap ->
+                resultBitmaps.forEachIndexed { index, bitmap ->
+                    Text("تصویر ${index + 1} از ۴", color = Color.White, style = MaterialTheme.typography.titleSmall)
                     Image(
                         bitmap = bitmap.asImageBitmap(),
-                        contentDescription = "تصویر تولیدشده",
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp),
+                        contentDescription = "تصویر شماره ${index + 1}",
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp),
                         contentScale = ContentScale.Fit
                     )
                     Button(
                         modifier = Modifier.fillMaxWidth(),
                         onClick = { saveGeneratedImage(context, bitmap) }
-                    ) { Text("ذخیره تصویر در گالری گوشی") }
+                    ) { Text("ذخیره تصویر ${index + 1} در گالری") }
                 }
             }
         }
