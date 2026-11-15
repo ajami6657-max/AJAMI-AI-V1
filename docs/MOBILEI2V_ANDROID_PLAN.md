@@ -228,3 +228,18 @@ The upstream repository was rechecked directly at `hustvl/MobileI2V`:
 Do not try to run the upstream Python/CUDA inference script inside Android, and do not infer Android compatibility from the paper's mobile timing. The next valid experiment is a reproducible export of the denoiser and VAE components with fixed input/output signatures, followed by numerical parity tests against upstream PyTorch on a development host. Then test operator coverage and memory in a separate Android ARM64 runtime prototype. Keep the current Vulkan probe and stable APK separate; a Vulkan shader passing does not convert CUDA/PyTorch operators into Android/Mali kernels.
 
 A release gate is met only when the exported pipeline generates a genuine image-conditioned clip offline on the actual A53, with measured RAM, latency, thermals and output inspection. Until then, MobileI2V remains a research candidate, not an integrated production engine.
+
+
+## Active denoiser forward-path correction (2026-11-15)
+
+A deeper source audit of upstream `diffusion/model/nets/mobiledit.py` corrects an earlier ambiguity:
+
+- The instantiated model builds seven `SanaBlock_cross` blocks, then one `SanaBlock_vanila`, then seven more `SanaBlock_cross` blocks and one more `SanaBlock_vanila`.
+- In the active `SanaBlock_cross.forward`, the call `self.cross_attn(x, y, mask)` is explicitly commented out. `SanaBlock_vanila` has no active cross-attention module/call either.
+- The model computes text embeddings (`y_embedder` and optional RMSNorm) and passes them into each block, but the inspected active block forwards do not consume `y` or `mask` in an executed operation. Therefore, text-prompt conditioning is not demonstrated by this active forward path; the image condition and flow-score path are the evidenced conditioning inputs. Do not promise prompt-directed motion from this checkpoint without a controlled test.
+- The source contains an ONNX export helper for a fast-linear module, but it is not a complete export script for the MobileI2V denoiser + video VAE pipeline. Its existence does not establish end-to-end ONNX compatibility.
+- The model forward includes fixed-shape assumptions such as repeating timestep and flow-score values to length 2760, and the inference path uses a 17-frame latent clip. Any export must explicitly freeze/test the intended A53 input shape and prove numerical parity, rather than assuming arbitrary dynamic video lengths.
+
+### Consequence for AJAMI-AI product behavior
+
+The initial prototype, if export proves possible, must be described as **image-conditioned motion generation controlled by the model's flow/motion score**, not free-form prompt-to-video. The text prompt field must not be presented as a working motion-control feature unless a modified model is trained or an experimentally validated prompt-conditioning path is established. Keep model and UI claims aligned with tested behavior.
