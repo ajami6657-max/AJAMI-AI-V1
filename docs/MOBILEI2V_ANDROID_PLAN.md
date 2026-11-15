@@ -211,3 +211,20 @@ The requested final output duration is **60 seconds**. This is a product require
 ### Frame-count planning
 
 At 8 generated frames per second, a 60-second clip contains 480 frames; at 12 fps it contains 720 frames; at 24 fps it contains 1,440 frames. These are planning figures only. Do not upscale frame rate by duplicating/interpolating frames and describe that as native model generation. Select the native generation rate only after a real device benchmark.
+
+
+## Official MobileI2V inference-path audit (2026-11-15)
+
+The upstream repository was rechecked directly at `hustvl/MobileI2V`:
+
+- Its README describes MobileI2V as a 0.27B denoiser and reports a 2.24-second mobile result. That timing is a published mobile-device result, not evidence for Exynos 1280 / Mali-G68; it must not be quoted as an A53 benchmark.
+- The official inference entry point is `scripts/inference_i2v.py`. It imports PyTorch, uses a `torch.Generator(device=device)`, creates the latent video tensor, VAE-encodes the reference image, runs `FlowEuler`, and VAE-decodes the generated clip. The example launcher uses `CUDA_VISIBLE_DEVICES=0`; the inspected upstream requirements pin `torch==2.4.0+cu121` and NVIDIA CUDA 12.1 packages.
+- The supplied 300M configuration is not a self-contained 300 MB model. It specifies a 128-channel video latent, a video VAE, a Qwen2-0.5B text encoder, and the MobileI2V checkpoint. Runtime memory includes model weights, activations, attention/workspace buffers and decoded frames, so checkpoint size alone is not a useful A53 RAM estimate.
+- The upstream GitHub repository metadata reports Apache-2.0 and contains `LICENSE.txt`. This is a code-repository license finding only; separately downloaded weights and dependent VAE/text-encoder assets must each retain their own license and redistribution checks.
+- The official example generates 17 frames and writes video at 17 fps. That is approximately one second of output, not a demonstrated 60-second generation path.
+
+### Engineering consequence
+
+Do not try to run the upstream Python/CUDA inference script inside Android, and do not infer Android compatibility from the paper's mobile timing. The next valid experiment is a reproducible export of the denoiser and VAE components with fixed input/output signatures, followed by numerical parity tests against upstream PyTorch on a development host. Then test operator coverage and memory in a separate Android ARM64 runtime prototype. Keep the current Vulkan probe and stable APK separate; a Vulkan shader passing does not convert CUDA/PyTorch operators into Android/Mali kernels.
+
+A release gate is met only when the exported pipeline generates a genuine image-conditioned clip offline on the actual A53, with measured RAM, latency, thermals and output inspection. Until then, MobileI2V remains a research candidate, not an integrated production engine.
