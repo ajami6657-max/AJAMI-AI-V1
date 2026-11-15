@@ -28,13 +28,18 @@ jobs:
         timeout-minutes: 90
         run: |
           sudo apt-get update
-          sudo apt-get install -y glslc spirv-headers
+          sudo apt-get install -y glslc
           export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
           test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses
           "$SDKMANAGER" --install "ndk;27.2.12479018" "cmake;3.31.6"
           git clone --depth 1 --recurse-submodules https://github.com/leejet/stable-diffusion.cpp.git /tmp/stable-diffusion.cpp
+          git clone --depth 1 https://github.com/KhronosGroup/SPIRV-Headers.git /tmp/SPIRV-Headers
+          cmake -S /tmp/SPIRV-Headers -B /tmp/SPIRV-Headers/build \
+            -DSPIRV_HEADERS_ENABLE_TESTS=OFF \
+            -DCMAKE_INSTALL_PREFIX=/tmp/spirv-headers-install
+          cmake --install /tmp/SPIRV-Headers/build
           NDK="$ANDROID_HOME/ndk/27.2.12479018"
           cmake -S /tmp/stable-diffusion.cpp -B /tmp/stable-diffusion.cpp/build-android -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
@@ -44,6 +49,7 @@ jobs:
             -DGGML_OPENMP=OFF \
             -DSD_OPENCL=OFF \
             -DSD_VULKAN=ON \
+            -DSPIRV-Headers_DIR=/tmp/spirv-headers-install/share/cmake/SPIRV-Headers \
             -DVulkan_INCLUDE_DIR="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" \
             -DVulkan_LIBRARY="$(find "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android" -name libvulkan.so | sort -V | tail -n 1)" \
             -DVulkan_GLSLC_EXECUTABLE="$(command -v glslc)" \
