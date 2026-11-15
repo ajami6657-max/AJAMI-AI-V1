@@ -85,7 +85,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
         ) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("تصویرساز هوش مصنوعی آفلاین", color = gold, style = MaterialTheme.typography.titleMedium)
-                Text("Stable Diffusion 1.5 • تولید ۴ تصویر • حالت سریع CPU • 256×256 • ۸ مرحله", color = Color.White)
+                Text("Stable Diffusion 1.5 • تولید ۴ تصویر • شتاب‌دهی Vulkan • 256×256 • ۸ مرحله", color = Color.White)
                 Text("در هر درخواست ۴ تصویر متفاوت ساخته می‌شود؛ به دلیل اجرای متوالی، زمان بیشتری لازم است. مدل حدود ۳٫۱ گیگابایت است و تولید کاملاً آفلاین انجام می‌شود.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                 Text(status, color = Color.White, style = MaterialTheme.typography.bodySmall)
 
@@ -127,7 +127,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                         onClick = {
                             generating = true
                             resultBitmaps = emptyList()
-                            status = "در حال اجرای مدل روی پردازنده گوشی..."
+                            status = "در حال اجرای مدل با شتاب‌دهی Vulkan..."
                             scope.launch {
                                 try {
                                     val bitmaps = withContext(Dispatchers.IO) {
@@ -159,7 +159,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                                                 "--steps", "8",
                                                 "--cfg-scale", "6.0",
                                                 "--seed", seed.toString(),
-                                                "--backend", "cpu",
+                                                "--backend", "Vulkan0",
                                                 "--flash-attn", "on"
                                             ).redirectErrorStream(true).start()
                                             val log = StringBuilder()
