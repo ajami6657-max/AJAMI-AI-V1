@@ -40,6 +40,7 @@ jobs:
             -DSPIRV_HEADERS_ENABLE_TESTS=OFF \
             -DCMAKE_INSTALL_PREFIX=/tmp/spirv-headers-install
           cmake --install /tmp/SPIRV-Headers/build
+          git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers.git /tmp/Vulkan-Headers
           NDK="$ANDROID_HOME/ndk/27.2.12479018"
           cmake -S /tmp/stable-diffusion.cpp -B /tmp/stable-diffusion.cpp/build-android -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
@@ -50,7 +51,7 @@ jobs:
             -DSD_OPENCL=OFF \
             -DSD_VULKAN=ON \
             -DSPIRV-Headers_DIR=/tmp/spirv-headers-install/share/cmake/SPIRV-Headers \
-            -DVulkan_INCLUDE_DIR="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include" \
+            -DVulkan_INCLUDE_DIR=/tmp/Vulkan-Headers/include \
             -DVulkan_LIBRARY="$(find "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android" -name libvulkan.so | sort -V | tail -n 1)" \
             -DVulkan_GLSLC_EXECUTABLE="$(command -v glslc)" \
             -DCMAKE_BUILD_TYPE=Release
