@@ -155,3 +155,23 @@ Next gate:
 The user reports that the lightweight Mali/video-runtime smoke-test stage completed successfully on the Galaxy A53. No benchmark log, runtime identity, tensor execution trace, memory peak, or generated video clip was supplied with this confirmation.
 
 Record as a user-reported smoke-test pass only. Do not interpret it as proof that a complete video diffusion model or genuine I2V generation runs on the device. The next acceptance gate remains execution of a verified candidate model on-device, followed by a complete offline 17-frame I2V generation and MP4 playback test.
+
+
+## Checkpoint availability and official deployment-path audit (2026-11-18)
+
+A fresh inspection of the official HUST repository and Hugging Face model page found:
+
+- The official GitHub README now links to the Hugging Face repository `hustvl/MobileI2V`.
+- The Hugging Face repository contains one `hybrid_371.pth` checkpoint of 1,074,370,038 bytes (about 1.07 GB).
+- In the May 25, 2026 GitHub issue discussion, an author says this is a "suboptimal checkpoint" and that it was uploaded because it is the only version they can open-source; the comment says it can accelerate model training. This is not sufficient evidence that it is a validated production inference checkpoint. Do not assume it is ready for phone inference.
+- The official GitHub README describes inference through `scripts/inference_i2v.py` and the checkpoint path `./model/hybrid_371.pth`. It also requires separate video-VAE and Qwen2-0.5B assets.
+- The upstream deployment directory currently documents Core ML exporters and an iOS demo, not an Android ONNX/ORT exporter. The iOS README requires matching Transformer, VAEEncoder, and VAEDecoder Core ML packages.
+- The GitHub source repository declares Apache-2.0, while the Hugging Face model page displays MIT. Treat the code and weight licensing separately and verify the exact license/redistribution terms for every model asset before bundling them into AJAMI-AI.
+
+Engineering decision:
+1. Checkpoint availability is now confirmed, but inference readiness and Android compatibility are not.
+2. Do not download the 1.07 GB checkpoint to the phone yet; first establish whether it can produce a reference 17-frame clip using the authors' exact PyTorch inference path and whether the checkpoint is intended for inference.
+3. Do not reuse the Core ML exporter as if it were an Android exporter. A separate Android export/runtime path and numerical parity tests are still required.
+4. The next practical step is to inspect the official exporter and model loading code, identify the exact dependency/assets and tensor contracts, and document a reproducible export plan before adding code to the APK.
+
+Sources checked: https://github.com/hustvl/MobileI2V, https://huggingface.co/hustvl/MobileI2V, https://github.com/hustvl/MobileI2V/issues/1
