@@ -202,3 +202,28 @@ Upstream files:
 - https://github.com/hustvl/MobileI2V/blob/main/deployment/coreml/transformer.py
 - https://github.com/hustvl/MobileI2V/blob/main/deployment/ios/MobileI2V/VideoPipeline.swift
 - https://github.com/hustvl/MobileI2V/blob/main/scripts/inference_i2v.py
+
+
+## Turbo-VAED LTX decoder asset audit (2026-11-18)
+
+A further check of the official MobileI2V README, HUST Turbo-VAED repository, Hugging Face model repository, and MobileI2V issue #13 found:
+
+- MobileI2V's README says its original LTX-Video decoder was replaced with Turbo-VAED.
+- The official `hustvl/Turbo-VAED` model repository lists `Turbo-VAED-LTX.pth` at 169 MB. Hugging Face reports SHA-256 `9d570c27e257bf38dd464839335a228893e0a337d518772abb39044c4092a64` and MIT license metadata.
+- In MobileI2V issue #13, a collaborator says the LTX encoder can theoretically remain unchanged while only the decoder is replaced, but advises following Turbo-VAED's decoder-loading code. A ready-made one-line swap is not demonstrated.
+- The Turbo-VAED-Wan checkpoint is a different decoder and must not be substituted for the LTX variant.
+
+Updated dependency picture:
+1. The LTX VAE encoder source is identified by the official MobileI2V README.
+2. A matching-family Turbo-VAED LTX decoder checkpoint is publicly listed (169 MB).
+3. Exact config/loader mapping and tensor compatibility still require a reference reconstruction test.
+4. Remaining blockers: conversion of raw `hybrid_371.pth` to the deployment transformer, verified text-conditioning semantics, full 17-frame reference inference, Android ONNX export/parity, and A53 memory/runtime validation.
+
+Decision: decoder sourcing is more promising than previously recorded, but this does not make the complete model Android-ready or prove it will run on the A53. No model was downloaded to the phone and no APK source was changed.
+
+Sources:
+- https://github.com/hustvl/MobileI2V
+- https://github.com/hustvl/MobileI2V/issues/13
+- https://github.com/hustvl/Turbo-VAED
+- https://huggingface.co/hustvl/Turbo-VAED/tree/main
+- https://huggingface.co/hustvl/Turbo-VAED/blob/main/Turbo-VAED-LTX.pth
