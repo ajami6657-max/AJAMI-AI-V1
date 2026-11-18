@@ -1,0 +1,31 @@
+name: Turbo-VAED checkpoint audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-checkpoint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out audit branch
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU inspection dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install huggingface_hub
+      - name: Inspect checkpoint safely
+        run: python tools/turbo_vaed_audit/inspect_checkpoint.py
+      - name: Upload tensor manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: turbo-vaed-checkpoint-manifest
+          path: turbo-vaed-checkpoint-manifest.json
