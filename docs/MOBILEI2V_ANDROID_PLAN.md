@@ -148,3 +148,10 @@ Next gate:
 2. Build a minimal, reproducible runtime benchmark harness for a candidate video model before downloading its full model pack.
 3. Require model/license availability, exact tensor signatures, reference inference, and target-device memory measurements before integrating any I2V runtime.
 4. Keep the experimental engine isolated from the stable app until a genuine 17-frame I2V clip is generated and played back offline on the A53.
+
+
+## Follow-up: lightweight Mali video-runtime smoke test (2026-11-18)
+
+The user reports that the lightweight Mali/video-runtime smoke-test stage completed successfully on the Galaxy A53. No benchmark log, runtime identity, tensor execution trace, memory peak, or generated video clip was supplied with this confirmation.
+
+Record as a user-reported smoke-test pass only. Do not interpret it as proof that a complete video diffusion model or genuine I2V generation runs on the device. The next acceptance gate remains execution of a verified candidate model on-device, followed by a complete offline 17-frame I2V generation and MP4 playback test.
