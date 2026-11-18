@@ -47,6 +47,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
     var imageCount by remember { mutableIntStateOf(1) }
     var imageSteps by remember { mutableIntStateOf(8) }
     var imageFormat by remember { mutableStateOf("1:1") }
+    var imageResolution by remember { mutableIntStateOf(256) }
     val gold = Color(0xFFFFC857)
 
     LaunchedEffect(Unit) {
@@ -141,7 +142,13 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                         FilterChip(selected = imageFormat == "16:9", onClick = { imageFormat = "16:9" }, label = { Text("افقی ۱۶:۹") })
                         FilterChip(selected = imageFormat == "9:16", onClick = { imageFormat = "9:16" }, label = { Text("عمودی ۹:۱۶") })
                     }
-                    Text("ابعاد مربع ۲۵۶×۲۵۶ و ابعاد افقی/عمودی ۵۱۲×۲۸۸ هستند؛ حالت‌های عریض‌تر ممکن است زمان و حافظه بیشتری مصرف کنند.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+                    Text("وضوح پایه", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = imageResolution == 256, onClick = { imageResolution = 256 }, label = { Text("پایدار • ۲۵۶") })
+                        FilterChip(selected = imageResolution == 384, onClick = { imageResolution = 384 }, label = { Text("متعادل • ۳۸۴") })
+                        FilterChip(selected = imageResolution == 512, onClick = { imageResolution = 512 }, label = { Text("بالا • ۵۱۲") })
+                    }
+                    Text("وضوح بالاتر حافظه و زمان بیشتری می‌خواهد. روی Galaxy A53 ابتدا ۲۵۶ یا ۳۸۴ را آزمایش کن؛ ۵۱۲ حالت آزمایشی است و ممکن است به محدودیت حافظه بخورد.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                     Button(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !generating && prompt.isNotBlank(),
@@ -149,8 +156,17 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                             val requestedCount = imageCount
                             val requestedSteps = imageSteps
                             val requestedFormat = imageFormat
-                            val imageWidth = when (requestedFormat) { "16:9" -> 512; "9:16" -> 288; else -> 256 }
-                            val imageHeight = when (requestedFormat) { "16:9" -> 288; "9:16" -> 512; else -> 256 }
+                            val requestedResolution = imageResolution
+                            val imageWidth = when (requestedFormat) {
+                                "16:9" -> requestedResolution * 2 / 3 * 2
+                                "9:16" -> requestedResolution * 2 / 3
+                                else -> requestedResolution
+                            }
+                            val imageHeight = when (requestedFormat) {
+                                "16:9" -> requestedResolution * 2 / 3
+                                "9:16" -> requestedResolution * 2 / 3 * 2
+                                else -> requestedResolution
+                            }
                             generating = true
                             resultBitmaps = emptyList()
                             status = "در حال اجرای مدل با شتاب‌دهی Vulkan..."
