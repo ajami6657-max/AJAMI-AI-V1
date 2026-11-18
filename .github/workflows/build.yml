@@ -33,7 +33,9 @@ jobs:
           export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
           test -x "$SDKMANAGER"
+          set +o pipefail
           yes | "$SDKMANAGER" --licenses
+          set -o pipefail
           "$SDKMANAGER" --install "ndk;27.2.12479018" "cmake;3.31.6"
           git clone --depth 1 --recurse-submodules https://github.com/leejet/stable-diffusion.cpp.git /tmp/stable-diffusion.cpp
           git clone --depth 1 https://github.com/KhronosGroup/SPIRV-Headers.git /tmp/SPIRV-Headers
