@@ -158,13 +158,13 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                             val requestedFormat = imageFormat
                             val requestedResolution = imageResolution
                             val imageWidth = when (requestedFormat) {
-                                "16:9" -> requestedResolution * 2 / 3 * 2
-                                "9:16" -> requestedResolution * 2 / 3
+                                "16:9" -> requestedResolution
+                                "9:16" -> requestedResolution * 9 / 16
                                 else -> requestedResolution
                             }
                             val imageHeight = when (requestedFormat) {
-                                "16:9" -> requestedResolution * 2 / 3
-                                "9:16" -> requestedResolution * 2 / 3 * 2
+                                "16:9" -> requestedResolution * 9 / 16
+                                "9:16" -> requestedResolution
                                 else -> requestedResolution
                             }
                             generating = true
