@@ -45,6 +45,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
     var downloadId by remember { mutableLongStateOf(-1L) }
     var resultBitmaps by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
     var imageCount by remember { mutableIntStateOf(1) }
+    var imageSteps by remember { mutableIntStateOf(8) }
     var imageFormat by remember { mutableStateOf("1:1") }
     val gold = Color(0xFFFFC857)
 
@@ -87,7 +88,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
         ) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("تصویرساز هوش مصنوعی آفلاین", color = gold, style = MaterialTheme.typography.titleMedium)
-                Text("Stable Diffusion 1.5 • شتاب‌دهی Vulkan • انتخاب نسبت تصویر • ۸ مرحله", color = Color.White)
+                Text("Stable Diffusion 1.5 • شتاب‌دهی Vulkan • انتخاب نسبت تصویر و کیفیت", color = Color.White)
                 Text("تعداد خروجی را انتخاب کن. حالت ۱ تصویر سریع‌تر است؛ حالت ۴ تصویر زمان و حافظه بیشتری مصرف می‌کند. مدل حدود ۳٫۱ گیگابایت است و تولید کاملاً آفلاین انجام می‌شود.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                 Text(status, color = Color.White, style = MaterialTheme.typography.bodySmall)
 
@@ -127,6 +128,13 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                         FilterChip(selected = imageCount == 1, onClick = { imageCount = 1 }, label = { Text("۱ تصویر • سریع") })
                         FilterChip(selected = imageCount == 4, onClick = { imageCount = 4 }, label = { Text("۴ تصویر") })
                     }
+                    Text("کیفیت تولید", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = imageSteps == 8, onClick = { imageSteps = 8 }, label = { Text("سریع • ۸ مرحله") })
+                        FilterChip(selected = imageSteps == 12, onClick = { imageSteps = 12 }, label = { Text("متعادل • ۱۲ مرحله") })
+                        FilterChip(selected = imageSteps == 16, onClick = { imageSteps = 16 }, label = { Text("بالاتر • ۱۶ مرحله") })
+                    }
+                    Text("مراحل بیشتر معمولاً زمان تولید را افزایش می‌دهد؛ برای شروع روی گوشی حالت سریع را انتخاب کن.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                     Text("نسبت تصویر", color = Color.White, style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = imageFormat == "1:1", onClick = { imageFormat = "1:1" }, label = { Text("مربع ۱:۱") })
@@ -139,6 +147,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                         enabled = !generating && prompt.isNotBlank(),
                         onClick = {
                             val requestedCount = imageCount
+                            val requestedSteps = imageSteps
                             val requestedFormat = imageFormat
                             val imageWidth = when (requestedFormat) { "16:9" -> 512; "9:16" -> 288; else -> 256 }
                             val imageHeight = when (requestedFormat) { "16:9" -> 288; "9:16" -> 512; else -> 256 }
@@ -173,7 +182,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                                                 "-p", imagePrompt,
                                                 "-o", output.absolutePath,
                                                 "-W", imageWidth.toString(), "-H", imageHeight.toString(),
-                                                "--steps", "8",
+                                                "--steps", requestedSteps.toString(),
                                                 "--cfg-scale", "6.0",
                                                 "--seed", seed.toString(),
                                                 "--backend", "Vulkan0",
@@ -196,7 +205,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                                         generated
                                     }
                                     resultBitmaps = bitmaps
-                                    status = "$requestedCount تصویر با موفقیت روی گوشی تولید شدند."
+                                    status = "$requestedCount تصویر با موفقیت روی گوشی و با $requestedSteps مرحله تولید شدند."
                                 } catch (e: Throwable) {
                                     status = "ساخت تصویر انجام نشد: " + (e.localizedMessage ?: e.javaClass.simpleName)
                                 } finally {
