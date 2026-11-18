@@ -175,3 +175,30 @@ Engineering decision:
 4. The next practical step is to inspect the official exporter and model loading code, identify the exact dependency/assets and tensor contracts, and document a reproducible export plan before adding code to the APK.
 
 Sources checked: https://github.com/hustvl/MobileI2V, https://huggingface.co/hustvl/MobileI2V, https://github.com/hustvl/MobileI2V/issues/1
+
+
+## Official deployment implementation source audit (2026-11-18)
+
+Inspected upstream `deployment/coreml/export.py`, `deployment/coreml/transformer.py`, `deployment/coreml/vae.py`, `scripts/inference_i2v.py`, and iOS `VideoPipeline.swift`.
+
+Findings:
+- The published Core ML exporter is explicitly an iOS/Core ML path (target iOS18). It exports a transformer from a Diffusers-format directory containing `config.json` and `diffusion_pytorch_model.safetensors`, and exports a Turbo-VAED decoder from a separate Turbo-VAED checkpoint. It does not accept the raw `hybrid_371.pth` as its transformer input.
+- The exporter supports two components, `transformer` and `vae` (decoder). It does not export the reference-image VAE encoder required by the iOS pipeline.
+- The iOS Swift pipeline expects three separate compiled Core ML packages: Transformer, VAEEncoder, and VAEDecoder. Its fixed input contract is a 17-frame output, latent tensor [1,128,3,23,40], reference image [1,3,1,736,1280], and 720-pixel crop from a padded 736x1280 decode.
+- The iOS implementation uses a fixed two-step FlowEuler schedule [1000, 760] and a particular distilled transformer/decoder package contract. The README's normal PyTorch inference script instead selects 30 FlowEuler steps by default. These must not be conflated: the iOS two-step pipeline requires compatible distilled/exported weights and is not evidence that the public raw checkpoint can be loaded into it.
+- The Core ML export validation compares PyTorch and Core ML outputs and defaults to a 30 dB PSNR threshold. This is a useful validation pattern, but it validates Apple Core ML models, not ONNX Runtime or Android.
+- The exported transformer signature in this deployment path has hidden_states, timestep, cond_mask, and flow_score; it has no text embedding input. The source explicitly notes caption projection parameters remain in legacy checkpoints although this hybrid transformer has no cross-attention and its output does not depend on text embeddings. Thus this export path does not demonstrate user prompt-driven motion control.
+- The official PyTorch inference script separately loads a Qwen text encoder and passes caption embeddings through the sampler/model wrapper, but the deployment transformer implementation above does not consume text embeddings. An exact architecture/checkpoint path must be established before claiming prompt conditioning.
+
+Decision:
+1. The 1.07 GB raw `hybrid_371.pth` checkpoint is not directly compatible with the published Core ML exporter input format.
+2. The iOS app source is a reference for tensor shapes and frame conditioning, not a reusable Android runtime.
+3. There is no official Android/ONNX exporter in the inspected deployment directory, and no validated Android model pack.
+4. Do not download the raw checkpoint to the A53 or integrate this iOS pipeline into AJAMI-AI yet.
+5. Next research gate: determine whether the released checkpoint can be converted into the exact Diffusers-format hybrid transformer expected by the exporter, identify matching distilled transformer and Turbo-VAED decoder weights plus a VAE encoder export, then validate the full official PyTorch 17-frame path on a supported reference environment. Only after that should Android export/runtime work begin.
+
+Upstream files:
+- https://github.com/hustvl/MobileI2V/blob/main/deployment/coreml/export.py
+- https://github.com/hustvl/MobileI2V/blob/main/deployment/coreml/transformer.py
+- https://github.com/hustvl/MobileI2V/blob/main/deployment/ios/MobileI2V/VideoPipeline.swift
+- https://github.com/hustvl/MobileI2V/blob/main/scripts/inference_i2v.py
