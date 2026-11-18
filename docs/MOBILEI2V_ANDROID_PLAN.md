@@ -132,3 +132,19 @@ Source inspected: https://github.com/Tiggy-Chan/LocalMotion
 ### Current decision and next engineering step
 
 No candidate in this review meets all four required gates for AJAMI-AI: genuine I2V conditioning, downloadable licensed weights, reproducible ARM64/Mali runtime, and verified execution on Exynos 1280. Saient is a useful Vulkan/mobile-memory reference but is T2V on a different phone; MobileVD is true I2V research but its reported device is Snapdragon and a reproducible A53 package was not found. Keep both as research leads only. Next implement a small Vulkan capability/driver smoke test on the actual A53 before investing in a multi-gigabyte video model pack. Do not change the stable main branch.
+
+## A53 Vulkan probe result reported by user (2026-11-18)
+
+The user reports that the Vulkan GPU probe in AJAMI-AI's Offline Video Studio completed successfully on the Samsung Galaxy A53. The user also reports successful offline image generation through Vulkan, including tests at multiple resolutions, stability, and memory-consumption checks.
+
+Interpretation and limits:
+- Record this as a user-reported successful device test; it has not been independently reproduced by CI or a captured benchmark log in this repository.
+- This confirms the tested Vulkan path is available for the tested image-generation workload on this device.
+- It does not prove that a video diffusion model, ONNX graph, or the MobileI2V architecture can execute on the A53.
+- It does not establish I2V model memory requirements, sustained thermal performance, or end-to-end MP4 generation from newly synthesized frames.
+
+Next gate:
+1. Preserve the successful image/Vulkan path.
+2. Build a minimal, reproducible runtime benchmark harness for a candidate video model before downloading its full model pack.
+3. Require model/license availability, exact tensor signatures, reference inference, and target-device memory measurements before integrating any I2V runtime.
+4. Keep the experimental engine isolated from the stable app until a genuine 17-frame I2V clip is generated and played back offline on the A53.
