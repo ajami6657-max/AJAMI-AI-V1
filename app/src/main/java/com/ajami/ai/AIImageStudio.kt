@@ -221,7 +221,8 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                                         generated
                                     }
                                     resultBitmaps = bitmaps
-                                    status = "$requestedCount تصویر با موفقیت روی گوشی و با $requestedSteps مرحله تولید شدند."
+                                    val savedCount = bitmaps.count { saveGeneratedImage(context, it) }
+                                    status = "$requestedCount تصویر با $requestedSteps مرحله تولید شدند؛ $savedCount تصویر در گالری ذخیره شد."
                                 } catch (e: Throwable) {
                                     status = "ساخت تصویر انجام نشد: " + (e.localizedMessage ?: e.javaClass.simpleName)
                                 } finally {
@@ -255,7 +256,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
 }
 
 
-private fun saveGeneratedImage(context: Context, bitmap: Bitmap) {
+private fun saveGeneratedImage(context: Context, bitmap: Bitmap): Boolean {
     try {
         if (Build.VERSION.SDK_INT >= 29) {
             val values = ContentValues().apply {
@@ -279,7 +280,9 @@ private fun saveGeneratedImage(context: Context, bitmap: Bitmap) {
             }
         }
         Toast.makeText(context, "تصویر در پوشه Pictures/AJAMI-AI ذخیره شد.", Toast.LENGTH_LONG).show()
+        return true
     } catch (e: Exception) {
         Toast.makeText(context, "ذخیره تصویر ناموفق بود: " + (e.localizedMessage ?: "خطای نامشخص"), Toast.LENGTH_LONG).show()
+        return false
     }
 }
