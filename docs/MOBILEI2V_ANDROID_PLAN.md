@@ -227,3 +227,30 @@ Sources:
 - https://github.com/hustvl/Turbo-VAED
 - https://huggingface.co/hustvl/Turbo-VAED/tree/main
 - https://huggingface.co/hustvl/Turbo-VAED/blob/main/Turbo-VAED-LTX.pth
+
+
+## Turbo-VAED-LTX loader and config compatibility audit (2026-11-18)
+
+Inspected the exact upstream MobileI2V Core ML VAE exporter, its `turbo_vae.json`, the Turbo-VAED repository's `Turbo-VAED-LTX.json`, `wan_decoder_utils.py`, and MobileI2V issue #13 plus its maintainer reply.
+
+Confirmed:
+- MobileI2V ships a dedicated `TurboVAEDecoder` implementation in `deployment/coreml/vae.py`; this is not the ordinary LTX VAE decoder class.
+- The MobileI2V exporter loads a Turbo-VAED-LTX checkpoint, strips only the training-only `latents_mean`, `latents_std`, and `aligned_feature_projection_heads.*` keys, then calls `load_state_dict(..., strict=True)`. This means all remaining decoder parameter names and tensor shapes must match exactly.
+- MobileI2V's `deployment/coreml/turbo_vae.json` and Turbo-VAED's `configs/Turbo-VAED-LTX.json` agree on the essential decoder architecture: channels [64,128,256,512], layers [3,2,3,1,1], depthwise flags [false,false,false,true,true], kernel 5, non-causal, latent channels 128, output channels 3, patch size 4 and temporal patch size 1. The full Turbo-VAED config also includes training/alignment metadata that the Core ML decoder implementation does not need.
+- Turbo-VAED's shared `wan_decoder_utils.py` loader is explicitly for the Wan checkpoint and Wan teacher; do not copy its Wan-specific model class/config path for LTX. It does demonstrate checkpoint unwrapping and strict state loading conventions, but the LTX exporter's own `load_vae` function is the more directly relevant loader.
+- MobileI2V issue #13's maintainer reply says that keeping the original encoder and replacing only the decoder is theoretically correct, while directing users to follow Turbo-VAED's decoder-loading code. The issue does not provide a validated end-to-end patch or Android implementation.
+
+Important remaining boundary:
+- This establishes a credible decoder architecture/config match and an upstream PyTorch loading recipe. It does not yet prove that the downloaded LTX checkpoint file has exactly the expected wrapper/key layout until its metadata/state keys are inspected and strict loading is run.
+- The original LTX encoder remains required for reference-image encoding. The published Core ML exporter exports only the denoiser and Turbo-VAED decoder; its VAE export does not produce the LTX encoder.
+- This does not solve the MobileI2V transformer checkpoint conversion, text-conditioning issue, Android ONNX export, or A53 inference/memory constraints.
+
+Next engineering action: obtain/inspect only the LTX checkpoint metadata and tensor-key manifest in a suitable build environment (not on the phone), then run strict PyTorch decoder load plus a small fixed-latent decode and compare it against the reference decoder path. No APK code or stable branch changes until this passes.
+
+Sources:
+- https://github.com/hustvl/MobileI2V/blob/main/deployment/coreml/export.py
+- https://github.com/hustvl/MobileI2V/blob/main/deployment/coreml/turbo_vae.json
+- https://github.com/hustvl/MobileI2V/blob/main/deployment/coreml/vae.py
+- https://github.com/hustvl/Turbo-VAED/blob/main/configs/Turbo-VAED-LTX.json
+- https://github.com/hustvl/Turbo-VAED/blob/main/wan_decoder_utils.py
+- https://github.com/hustvl/MobileI2V/issues/13
