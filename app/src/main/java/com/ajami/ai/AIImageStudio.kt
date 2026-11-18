@@ -45,6 +45,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
     var downloadId by remember { mutableLongStateOf(-1L) }
     var resultBitmaps by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
     var imageCount by remember { mutableIntStateOf(1) }
+    var imageFormat by remember { mutableStateOf("1:1") }
     val gold = Color(0xFFFFC857)
 
     LaunchedEffect(Unit) {
@@ -86,7 +87,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
         ) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("تصویرساز هوش مصنوعی آفلاین", color = gold, style = MaterialTheme.typography.titleMedium)
-                Text("Stable Diffusion 1.5 • شتاب‌دهی Vulkan • 256×256 • ۸ مرحله", color = Color.White)
+                Text("Stable Diffusion 1.5 • شتاب‌دهی Vulkan • انتخاب نسبت تصویر • ۸ مرحله", color = Color.White)
                 Text("تعداد خروجی را انتخاب کن. حالت ۱ تصویر سریع‌تر است؛ حالت ۴ تصویر زمان و حافظه بیشتری مصرف می‌کند. مدل حدود ۳٫۱ گیگابایت است و تولید کاملاً آفلاین انجام می‌شود.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                 Text(status, color = Color.White, style = MaterialTheme.typography.bodySmall)
 
@@ -126,11 +127,21 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                         FilterChip(selected = imageCount == 1, onClick = { imageCount = 1 }, label = { Text("۱ تصویر • سریع") })
                         FilterChip(selected = imageCount == 4, onClick = { imageCount = 4 }, label = { Text("۴ تصویر") })
                     }
+                    Text("نسبت تصویر", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = imageFormat == "1:1", onClick = { imageFormat = "1:1" }, label = { Text("مربع ۱:۱") })
+                        FilterChip(selected = imageFormat == "16:9", onClick = { imageFormat = "16:9" }, label = { Text("افقی ۱۶:۹") })
+                        FilterChip(selected = imageFormat == "9:16", onClick = { imageFormat = "9:16" }, label = { Text("عمودی ۹:۱۶") })
+                    }
+                    Text("ابعاد مربع ۲۵۶×۲۵۶ و ابعاد افقی/عمودی ۵۱۲×۲۸۸ هستند؛ حالت‌های عریض‌تر ممکن است زمان و حافظه بیشتری مصرف کنند.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                     Button(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !generating && prompt.isNotBlank(),
                         onClick = {
                             val requestedCount = imageCount
+                            val requestedFormat = imageFormat
+                            val imageWidth = when (requestedFormat) { "16:9" -> 512; "9:16" -> 288; else -> 256 }
+                            val imageHeight = when (requestedFormat) { "16:9" -> 288; "9:16" -> 512; else -> 256 }
                             generating = true
                             resultBitmaps = emptyList()
                             status = "در حال اجرای مدل با شتاب‌دهی Vulkan..."
@@ -161,7 +172,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                                                 "-m", modelFile.absolutePath,
                                                 "-p", imagePrompt,
                                                 "-o", output.absolutePath,
-                                                "-W", "256", "-H", "256",
+                                                "-W", imageWidth.toString(), "-H", imageHeight.toString(),
                                                 "--steps", "8",
                                                 "--cfg-scale", "6.0",
                                                 "--seed", seed.toString(),
