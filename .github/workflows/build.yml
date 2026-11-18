@@ -41,10 +41,12 @@ jobs:
           git clone --depth 1 https://github.com/KhronosGroup/SPIRV-Headers.git /tmp/SPIRV-Headers
           cmake -S /tmp/SPIRV-Headers -B /tmp/SPIRV-Headers/build \
             -DSPIRV_HEADERS_ENABLE_TESTS=OFF \
+            -DSPIRV_HEADERS_ENABLE_INSTALL=ON \
             -DCMAKE_INSTALL_PREFIX=/tmp/spirv-headers-install
           cmake --build /tmp/SPIRV-Headers/build --parallel 2
           cmake --install /tmp/SPIRV-Headers/build
           test -f /tmp/spirv-headers-install/include/spirv/unified1/spirv.hpp
+          test -f /tmp/spirv-headers-install/share/cmake/SPIRV-Headers/SPIRV-HeadersConfig.cmake
           git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers.git /tmp/Vulkan-Headers
           NDK="$ANDROID_HOME/ndk/27.2.12479018"
           VULKAN_LIBRARY="$(find "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android" -name libvulkan.so | sort -V | tail -n 1)"
@@ -58,6 +60,7 @@ jobs:
             -DSD_OPENCL=OFF \
             -DSD_VULKAN=ON \
             -DCMAKE_PREFIX_PATH=/tmp/spirv-headers-install \
+            -DSPIRV-Headers_DIR=/tmp/spirv-headers-install/share/cmake/SPIRV-Headers \
             -DCMAKE_CXX_FLAGS="-I/tmp/spirv-headers-install/include" \
             -DVulkan_INCLUDE_DIR=/tmp/Vulkan-Headers/include \
             -DVulkan_LIBRARY="$VULKAN_LIBRARY" \
