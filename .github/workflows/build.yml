@@ -27,8 +27,9 @@ jobs:
       - name: Build offline image engine for Android ARM64
         timeout-minutes: 90
         run: |
+          set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y glslc
+          sudo apt-get install -y glslc ninja-build
           export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
           test -x "$SDKMANAGER"
@@ -39,9 +40,13 @@ jobs:
           cmake -S /tmp/SPIRV-Headers -B /tmp/SPIRV-Headers/build \
             -DSPIRV_HEADERS_ENABLE_TESTS=OFF \
             -DCMAKE_INSTALL_PREFIX=/tmp/spirv-headers-install
+          cmake --build /tmp/SPIRV-Headers/build --parallel 2
           cmake --install /tmp/SPIRV-Headers/build
+          test -f /tmp/spirv-headers-install/include/spirv/unified1/spirv.hpp
           git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers.git /tmp/Vulkan-Headers
           NDK="$ANDROID_HOME/ndk/27.2.12479018"
+          VULKAN_LIBRARY="$(find "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android" -name libvulkan.so | sort -V | tail -n 1)"
+          test -n "$VULKAN_LIBRARY"
           cmake -S /tmp/stable-diffusion.cpp -B /tmp/stable-diffusion.cpp/build-android -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=arm64-v8a \
@@ -50,9 +55,10 @@ jobs:
             -DGGML_OPENMP=OFF \
             -DSD_OPENCL=OFF \
             -DSD_VULKAN=ON \
-            -DSPIRV-Headers_DIR=/tmp/spirv-headers-install/share/cmake/SPIRV-Headers \
+            -DCMAKE_PREFIX_PATH=/tmp/spirv-headers-install \
+            -DCMAKE_CXX_FLAGS="-I/tmp/spirv-headers-install/include" \
             -DVulkan_INCLUDE_DIR=/tmp/Vulkan-Headers/include \
-            -DVulkan_LIBRARY="$(find "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android" -name libvulkan.so | sort -V | tail -n 1)" \
+            -DVulkan_LIBRARY="$VULKAN_LIBRARY" \
             -DVulkan_GLSLC_EXECUTABLE="$(command -v glslc)" \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build /tmp/stable-diffusion.cpp/build-android --config Release --target sd-cli -j4
