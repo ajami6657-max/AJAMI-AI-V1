@@ -44,6 +44,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
     var generating by remember { mutableStateOf(false) }
     var downloadId by remember { mutableLongStateOf(-1L) }
     var resultBitmaps by remember { mutableStateOf<List<Bitmap>>(emptyList()) }
+    var imageCount by remember { mutableIntStateOf(1) }
     val gold = Color(0xFFFFC857)
 
     LaunchedEffect(Unit) {
@@ -85,8 +86,8 @@ fun AIImageStudio(languageModel: LlamaModel?) {
         ) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("تصویرساز هوش مصنوعی آفلاین", color = gold, style = MaterialTheme.typography.titleMedium)
-                Text("Stable Diffusion 1.5 • تولید ۴ تصویر • شتاب‌دهی Vulkan • 256×256 • ۸ مرحله", color = Color.White)
-                Text("در هر درخواست ۴ تصویر متفاوت ساخته می‌شود؛ به دلیل اجرای متوالی، زمان بیشتری لازم است. مدل حدود ۳٫۱ گیگابایت است و تولید کاملاً آفلاین انجام می‌شود.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+                Text("Stable Diffusion 1.5 • شتاب‌دهی Vulkan • 256×256 • ۸ مرحله", color = Color.White)
+                Text("تعداد خروجی را انتخاب کن. حالت ۱ تصویر سریع‌تر است؛ حالت ۴ تصویر زمان و حافظه بیشتری مصرف می‌کند. مدل حدود ۳٫۱ گیگابایت است و تولید کاملاً آفلاین انجام می‌شود.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                 Text(status, color = Color.White, style = MaterialTheme.typography.bodySmall)
 
                 if (!modelFile.exists() || modelFile.length() < 2_800_000_000L) {
@@ -121,10 +122,15 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                         label = { Text("توصیف تصویر را فارسی یا انگلیسی بنویس") },
                         minLines = 3
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = imageCount == 1, onClick = { imageCount = 1 }, label = { Text("۱ تصویر • سریع") })
+                        FilterChip(selected = imageCount == 4, onClick = { imageCount = 4 }, label = { Text("۴ تصویر") })
+                    }
                     Button(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !generating && prompt.isNotBlank(),
                         onClick = {
+                            val requestedCount = imageCount
                             generating = true
                             resultBitmaps = emptyList()
                             status = "در حال اجرای مدل با شتاب‌دهی Vulkan..."
@@ -147,7 +153,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                                             ).text.trim()
                                         } else rawPrompt
                                         val generated = mutableListOf<Bitmap>()
-                                        repeat(4) { index ->
+                                        repeat(requestedCount) { index ->
                                             val output = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "ajami_image_" + System.currentTimeMillis() + "_" + index + ".png")
                                             val seed = System.currentTimeMillis() + index
                                             val process = ProcessBuilder(
@@ -179,7 +185,7 @@ fun AIImageStudio(languageModel: LlamaModel?) {
                                         generated
                                     }
                                     resultBitmaps = bitmaps
-                                    status = "هر ۴ تصویر با موفقیت روی گوشی تولید شدند."
+                                    status = "$requestedCount تصویر با موفقیت روی گوشی تولید شدند."
                                 } catch (e: Throwable) {
                                     status = "ساخت تصویر انجام نشد: " + (e.localizedMessage ?: e.javaClass.simpleName)
                                 } finally {
@@ -192,10 +198,10 @@ fun AIImageStudio(languageModel: LlamaModel?) {
 
                 if (generating) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Text("در حال ساخت تصویر ${resultBitmaps.size + 1} از ۴؛ گوشی را خنک نگه دار و برنامه را باز بگذار.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
+                    Text("در حال ساخت تصویر ${resultBitmaps.size + 1} از $imageCount؛ گوشی را خنک نگه دار و برنامه را باز بگذار.", color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                 }
                 resultBitmaps.forEachIndexed { index, bitmap ->
-                    Text("تصویر ${index + 1} از ۴", color = Color.White, style = MaterialTheme.typography.titleSmall)
+                    Text("تصویر ${index + 1} از ${resultBitmaps.size}", color = Color.White, style = MaterialTheme.typography.titleSmall)
                     Image(
                         bitmap = bitmap.asImageBitmap(),
                         contentDescription = "تصویر شماره ${index + 1}",
