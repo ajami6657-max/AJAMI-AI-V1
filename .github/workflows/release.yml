@@ -59,7 +59,7 @@ jobs:
           chmod 755 app/src/main/jniLibs/arm64-v8a/libsd.so
       - name: Build signed release APK
         env:
-          AJAMI_KEYSTORE_PATH: app/keystore/ajami-release.jks
+          AJAMI_KEYSTORE_PATH: keystore/ajami-release.jks
           AJAMI_KEYSTORE_PASSWORD: ${{ secrets.AJAMI_KEYSTORE_PASSWORD }}
           AJAMI_KEY_ALIAS: ${{ secrets.AJAMI_KEY_ALIAS }}
           AJAMI_KEY_PASSWORD: ${{ secrets.AJAMI_KEY_PASSWORD }}
