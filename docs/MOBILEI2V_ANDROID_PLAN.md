@@ -243,3 +243,57 @@ A deeper source audit of upstream `diffusion/model/nets/mobiledit.py` corrects a
 ### Consequence for AJAMI-AI product behavior
 
 The initial prototype, if export proves possible, must be described as **image-conditioned motion generation controlled by the model's flow/motion score**, not free-form prompt-to-video. The text prompt field must not be presented as a working motion-control feature unless a modified model is trained or an experimentally validated prompt-conditioning path is established. Keep model and UI claims aligned with tested behavior.
+
+
+## Weekly model audit (2026-11-20)
+
+Target remains Samsung Galaxy A53 / SM-A536E / Exynos 1280 / Mali-G68 / ARM64 / Android 16 / 8 GB RAM. No model was tested on the A53 in this review. The stable `main` branch and existing AJAMI-AI features were not changed; this update is documentation-only on the experimental branch.
+
+### New candidate to watch: third-party Neodragon LiteRT picture-to-video conversion
+
+Sources: [LiteRT model card and converted files](https://huggingface.co/jegly/neo_dragon), [Qualcomm's upstream Neodragon repository](https://github.com/Qualcomm-AI-research/neodragon), [Qualcomm model card](https://huggingface.co/Qualcomm-AI-Research/Neodragon).
+
+- The third-party `jegly/neo_dragon` model card publishes fixed-shape LiteRT/TFLite graphs and labels a video pipeline as picture-to-video. Its image encoder accepts one 320x512 frame and emits a 16-channel 40x64 latent; the three temporal DiT stages each accept two conditioning latents; the video decoder maps latent input to 9 RGB frames at 320x512. This is structurally consistent with generated frames conditioned on a reference image, not a slideshow or pan/zoom. However, the complete Android inference wiring is not published with the model card, so this remains a provisional I2V classification pending source-level pipeline validation.
+- The graph pack is about 4.67 GB: DT5 encoder 495 MB, context adapter 124 MB, CLIP-L 472 MB, CLIP-G 670 MB, three INT4 DiT stage graphs 816/817/822 MB, causal video VAE encoder 419 MB, and decoder 38 MB. The three DiT graphs are separate resolution stages for the same 1.5B-parameter model. The published video path is limited to 9 frames at 320x512; do not reuse Neodragon's separate 49-frame T2V headline for this converted I2V path.
+- Runtime is LiteRT/TFLite CPU only in the published conversion. The model card says LiteRT's GPU delegate supports only rank-4 tensors, while the model uses rank-5 video latents; its GPU test on Tensor G5 segfaulted. On a Pixel 10 Pro Fold / Tensor G5 CPU, the three DiT stage calls are reported at about 1.1/3.9/17.3 seconds each. These are not A53 measurements. The converted card does not publish peak RAM for the complete I2V path.
+- Prompt components are present (DT5, CLIP-L/CLIP-G encoders and a context adapter), so text conditioning appears to be part of the intended graph. But the model card provides no end-to-end inference code or code snippets with which to verify exactly how prompt embeddings enter every DiT stage. Do not promise free-form prompt control until that wiring is inspected and tested.
+- License is not unrestricted: the conversion states that the original Qualcomm weights' BSD 3-Clause Clear terms and Qualcomm Responsible AI License both apply. Review the Qualcomm restrictions before redistribution or use in AJAMI-AI.
+- No Galaxy A53 / Exynos 1280 result exists. A CPU-only ARM64 LiteRT path is more vendor-neutral than QNN/Hexagon, but 4.67 GB of model files, unknown peak activation memory, and CPU-only inference make performance and thermal feasibility uncertain on this A53.
+
+Decision: this is the most relevant new experimental lead for an isolated A53 CPU smoke test, not an accepted production backend. Obtain/inspect the complete pipeline implementation, then test the exact 320x512 / 9-frame path with staged model loading, peak RSS, elapsed time, temperature and battery logging. Do not attempt the LiteRT GPU delegate for these rank-5 graphs, do not add a UI button, and do not merge it to main before a full offline device run.
+
+### Neodragon and Nightmare Mobile: genuine mobile video, but not an A53 backend
+
+- Qualcomm's official Neodragon is a genuine prompt-conditioned text-to-video DiT. The official model card describes 49 frames at 24 fps, 320x512, BF16, 4.945B parameters, about 3.5 GB peak RAM and a 6.7-second result on Qualcomm Hexagon. Those are Qualcomm/Snapdragon results, not Exynos/Mali results, and the official model is T2V rather than the converted I2V variant above.
+- A third-party QNN Android port reports a Samsung S25 Ultra / Hexagon run, around 8 GB of memory-mapped model binaries and 23.5–26.9 seconds for a 49-frame T2V render. It is a Qualcomm-specific port and is not transferable to the A53.
+- Nightmare Mobile now documents image-to-video using Neodragon (49 frames at 1024x640, about 25 seconds on Snapdragon 8 Elite). Its hardware table explicitly excludes Exynos from video-model downloads; non-Snapdragon phones are limited to image generation paths. The app's own license is CC BY-NC 4.0 and the Qualcomm runtime has separate terms. Reject as an A53 backend.
+
+### Official MobileI2V: new iOS deployment work, still no Android path
+
+Sources: [official repository](https://github.com/hustvl/MobileI2V), [official deployment section](https://github.com/hustvl/MobileI2V/tree/main/deployment), [official checkpoint](https://huggingface.co/hustvl/MobileI2V), [author's checkpoint clarification](https://github.com/hustvl/MobileI2V/issues/1).
+
+- The upstream README now documents Core ML exporters for the hybrid transformer and Turbo-VAED decoder, plus an Xcode 16 / iOS 18 demo. It requires Apple Silicon export tooling and Core ML packages; it does not provide an Android ONNX/TFLite/NNAPI/Vulkan runtime.
+- The only published `hybrid_371.pth` remains 1.07 GB. The author explicitly called it a suboptimal checkpoint and said it was the only weights version they could open-source, useful for accelerating training. Do not equate its availability with a final verified two-step mobile student checkpoint.
+- The active upstream Mobiledit block forwards still do not consume `y` text embeddings: the cross-attention residual call is commented out in the active SanaBlock_cross path, and SanaBlock_vanila has no active cross-attention. The official inference pipeline does perform reference-image latent conditioning, but arbitrary free-form motion-prompt control is not established by this code path.
+- Repository code is Apache-2.0; the Hugging Face checkpoint card shows MIT metadata; Turbo-VAED-LTX is listed as MIT; Qwen2-0.5B is Apache-2.0. The LTX VAE dependency has its own version-specific license and must be checked separately. These terms must not be collapsed into one blanket license for the full pack.
+- No A53 experiment was performed. Keep MobileI2V as a research lead only.
+
+### Third-party MobileI2VConsole: reject after direct source audit
+
+Sources: [repository](https://github.com/himadriHK/MobileI2VConsole), [orchestrator](https://github.com/himadriHK/MobileI2VConsole/blob/main/src/MobileI2VConsole/Services/InferenceOrchestrator.cs), [ONNX wrapper](https://github.com/himadriHK/MobileI2VConsole/blob/main/scripts/convert/models/mobiledit.py), [model manager](https://github.com/himadriHK/MobileI2VConsole/blob/main/src/MobileI2VConsole/Services/ModelManagerService.cs), [manifest](https://github.com/himadriHK/MobileI2VConsole/blob/main/scripts/convert/models/models_manifest.json).
+
+- The C# prompt tokenizer maps raw UTF-8 bytes directly to token IDs instead of using the Qwen tokenizer. More decisively, its ONNX denoiser call supplies only latent and timestep; the computed text embeddings are not passed. The fork's own ONNX wrapper comments that `text_emb` is unused by the active transformer blocks and is pruned from the exported graph.
+- The implementation tiles the same encoded image latent across all 17 frames and applies hard-coded two-step alpha/sigma values. This does not reproduce the official FlowEuler sampler, conditional/unconditional guidance, and reference-latent reinjection semantics.
+- The code attempts NNAPI and silently falls back to the ONNX Runtime CPU provider; it does not establish a Mali Vulkan inference path. The model manager points to ONNX filenames in upstream Hugging Face repositories that publish PyTorch `.pth` files rather than those converted ONNX assets. The checked-in manifest totals about 4.01 GB, while the README advertises about 1.5 GB. The repository does not provide a verifiable license file despite its README badge.
+- No reproducible A53 run, peak-memory measurement, or validated model parity test was found.
+
+Decision: do not copy this port or use its claimed 720p/17-frame result as evidence of a working A53 engine.
+
+### CineMobile and other leads
+
+- CineMobile remains a paper-only research lead: the paper reports 49 frames at 480p, about 1.8 GB peak memory and around 20 seconds on a Dimensity 8400 Ultimate / Mali-G720 platform. No official code, downloadable checkpoint, explicit weight license or Android runtime was found. The paper result is not evidence for the much older Exynos 1280 / Mali-G68.
+- MobileVD remains a genuine I2V research paper but has no newly verified Android/Mali package or A53 result. MOVD remains text-to-video/iOS-oriented rather than an Android I2V option.
+
+### Engineering decision for AJAMI-AI
+
+No candidate is currently approved for integration or proven on the Galaxy A53. The only new path worth a controlled prototype is the third-party Neodragon LiteRT CPU conversion, because it publishes actual TFLite video graphs and an image-encoder path without depending on Snapdragon. Before any integration, obtain the complete inference wiring and run a minimal CPU-only test on the A53 at 320x512 / 9 frames. Record peak RSS, model load/unload behavior, wall time, thermals, battery, output frame variation and airplane-mode operation. If memory or thermal behavior is unstable, stop. Preserve the stable main branch and all existing AJAMI-AI features; this report does not claim an APK build or a successful A53 run.
